@@ -57,7 +57,7 @@ location.host + "/ws";
 
 ws.send(JSON.stringify({
   type: "post",
-  text
+ text:  text
 }));
 
     ws.addEventListener("open", () => { /* no-op */ });
