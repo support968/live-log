@@ -3,6 +3,14 @@ import { WebSocketServer } from "ws";
 import Database from "better-sqlite3";
 import crypto from "crypto";
 
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
+
 const PORT = process.env.PORT || 8080;
 const MAX_LEN = 140;
 const RATE_MS = 4000;
@@ -19,6 +27,8 @@ db.exec(`
 `);
 
 const app = express();
+app.use(express.static(path.join(__dirname, "public")));
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
@@ -78,14 +88,7 @@ function ipHash(req) {
 }
 
 
-const wss = new WebSocketServer({
-  server,
-  path: "/ws",
-  verifyClient: (info, done) => {
-    // Cargo, 외부 사이트 모두 허용
-    done(true);
-  }
-});
+
 
 
 wss.on("connection", (ws, req) => {
