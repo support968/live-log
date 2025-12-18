@@ -1,0 +1,13 @@
+{
+  "name": "live-log",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.5.0",
+    "express": "^5.2.1",
+    "ws": "^8.18.3"
+  }
+}
