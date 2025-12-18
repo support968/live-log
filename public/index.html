@@ -22,72 +22,64 @@ white-space: pre-wrap; }
 enter" />
   </div>
 
-  <script>
-    //
-    const API_BASE = "";
-    const WS_URL = (location.protocol === "https:" ? "wss://" : "ws://") + 
-location.host + "/ws";
 
-    const list = document.getElementById("logList");
-    const input = document.getElementById("logInput");
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const API_BASE = "https://live-log-2h3h.onrender.com";
+  const WS_URL   = "wss://live-log-2h3h.onrender.com/ws";
 
-    const append = (ts, text, cls) => {
-      const div = document.createElement("div");
-      if (cls) div.className = cls;
-      div.textContent = `${new Date(ts).toLocaleString()}  ${text}`;
-      list.appendChild(div);
-      list.scrollTop = list.scrollHeight;
-    };
+  const list  = document.getElementById("logList");
+  const input = document.getElementById("logInput");
 
-    const loadInitial = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/messages`, { cache: 
-"no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const rows = await res.json();
-        list.innerHTML = "";
-        rows.forEach(r => append(r.ts, r.text));
-      } catch (e) {
-        append(Date.now(), `[error] fetch failed`, "err");
-      }
-    };
+  const append = (ts, text) => {
+    const div = document.createElement("div");
+    div.textContent = `${new Date(ts).toLocaleString()}  ${text}`;
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+  };
 
-    const ws = new WebSocket(WS_URL);
+  async function loadInitial(){
+    try {
+      const res = await fetch(`${API_BASE}/api/messages`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const rows = await res.json();
+      list.innerHTML = "";
+      rows.forEach(r => append(r.ts, r.text));
+    } catch {
+      append(Date.now(), "[error] fetch failed");
+    }
+  }
 
-ws.send(JSON.stringify({
-  type: "post",
-   text
-}));
+  const ws = new WebSocket(WS_URL);
 
-    ws.addEventListener("open", () => { /* no-op */ });
+  ws.addEventListener("message", (ev) => {
+    try{
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "message") append(msg.ts, msg.text);
+    } catch {}
+  });
 
-    ws.addEventListener("message", (ev) => {
-      try {
-        const msg = JSON.parse(ev.data);
-        if (msg?.type === "new") append(msg.ts, msg.text);
-        if (msg?.type === "error") append(Date.now(), `[error] 
-${msg.message || "unknown"}`, "err");
-      } catch {}
-    });
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
 
-    ws.addEventListener("close", () => {
-      append(Date.now(), `[error] websocket closed`, "err");
-    });
+    const text = input.value.trim();
+    if (!text) return;
 
-    input.addEventListener("keydown", (e) => {
-      if (e.key !== "Enter") return;
-      const text = input.value.trim();
-      if (!text) return;
-      input.value = "";
-      try {
-        ws.send(JSON.stringify({ text }));
-      } catch {
-        append(Date.now(), `[error] send failed`, "err");
-      }
-    });
+    input.value = "";
 
-    loadInitial();
-  </script>
+    try {
+      ws.send(JSON.stringify({ type: "post", text }));
+    } catch {
+      append(Date.now(), "[error] send failed");
+    }
+  });
+
+  loadInitial();
+});
+</script>
+
+
 </body>
 </html>
 
