@@ -19,6 +19,24 @@ db.exec(`
 `);
 
 const app = express();
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
 app.use(express.json({ limit: "20kb" }));
 
 // 초기 로그 API
@@ -58,6 +76,17 @@ function ipHash(req) {
     .digest("hex")
     .slice(0, 16);
 }
+
+
+const wss = new WebSocketServer({
+  server,
+  path: "/ws",
+  verifyClient: (info, done) => {
+    // Cargo, 외부 사이트 모두 허용
+    done(true);
+  }
+});
+
 
 wss.on("connection", (ws, req) => {
   const ipH = ipHash(req);
