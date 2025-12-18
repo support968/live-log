@@ -2,189 +2,242 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Live Log</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>communal listening</title>
 
   <style>
     :root{
       --bg:#000;
       --fg:#ff2a2a;
+      --muted:#ff2a2a;
+      --pad:32px;
+      --font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
+"Liberation Mono", "Courier New", monospace;
     }
 
-    *{ box-sizing:border-box; }
     html,body{
       height:100%;
       margin:0;
       background:var(--bg);
       color:var(--fg);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation 
-Mono","Courier New", monospace;
+      font:var(--font);
     }
 
-    #term{
-      height:100%;
-      width:100%;
+    /* 전체 레이아웃 */
+    #wrap{
+      position:fixed;
+      inset:0;
+      padding: var(--pad);
+      box-sizing:border-box;
     }
 
-    #logList{
-      height:100%;
-      padding:18px;
-      overflow:auto;
-      white-space:pre;
-      font-size:14px;
-      line-height:1.35;
-    }
-
-    /* top prompt line */
-    #promptLine{
+    /* 상단 입력 라인 */
+    #topbar{
+      position:absolute;
+      left:var(--pad);
+      right:var(--pad);
+      top:var(--pad);
       display:flex;
-      align-items:baseline;
-      gap:8px;
-      margin-bottom:10px;
+      align-items:center;
+      gap:18px;
+      pointer-events:none; /* 상단바는 클릭 막고, 입력은 아래 input이 받음 */
     }
 
-    #promptPrefix{
-      display:inline-block;
-      min-width:260px;        /* underline length */
-      border-bottom:1px solid var(--fg);
-      height:1em;
+    #promptLine{
+      flex: 0 0 auto;
+      width: 260px;
+      height: 18px;
+      border-bottom: 1px solid var(--fg);
+      position:relative;
     }
 
-    /* inline input (no white box) */
-    #logInput{
-      width:260px;
-      background:transparent;
+    /* 커서 깜빡임 */
+    #caret{
+      position:absolute;
+      right:-2px;
+      bottom:-2px;
+      width:1px;
+      height:18px;
+      background:var(--fg);
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity:0; } }
+
+    #status{
+      pointer-events:none;
+      white-space:nowrap;
+      opacity:0.95;
+    }
+
+    /* 로그 영역 */
+    #log{
+      position:absolute;
+      left:var(--pad);
+      right:var(--pad);
+      top: calc(var(--pad) + 44px);
+      bottom: var(--pad);
+      overflow:auto;
+      padding-right: 12px;
+      box-sizing:border-box;
+      scroll-behavior:auto;
+    }
+
+    /* 로그 한 줄 */
+    .row{
+      white-space: pre;
+    }
+
+    /* 실제 입력은 화면에 안 보이게, 하지만 포커스/키 입력은 받게 */
+    #realInput{
+      position:absolute;
+      left:var(--pad);
+      top:var(--pad);
+      width: 260px;
+      height: 24px;
+      opacity:0;
       border:0;
-      outline:none;
-      color:var(--fg);
-      font:inherit;
-      padding:0;
-      margin:0;
-      caret-color:var(--fg);
+      outline:0;
+      background:transparent;
+      color:transparent;
+      caret-color: transparent;
+      z-index: 10;
     }
 
-    #lines .line{ color:var(--fg); }
-    #lines .err{ opacity:.85; }
+    /* 클릭하면 어디서든 입력으로 포커스 */
+    #clickCatcher{
+      position:absolute;
+      inset:0;
+      background:transparent;
+      z-index: 5;
+    }
   </style>
 </head>
 
 <body>
-  <div id="term">
-    <div id="logList">
-      <div id="promptLine">
-        <span id="promptPrefix"></span>
-        <input id="logInput" autocomplete="off" spellcheck="false" />
-        <span id="promptSuffix">is here for communal listening</span>
-      </div>
+  <div id="wrap">
+    <div id="clickCatcher"></div>
 
-      <div id="lines"></div>
+    <div id="topbar">
+      <div id="promptLine"><div id="caret"></div></div>
+      <div id="status">_____ is here for communal listening</div>
     </div>
+
+    <input id="realInput" autocomplete="off" autocapitalize="off" spellcheck="false" />
+
+    <div id="log" aria-label="log"></div>
   </div>
 
   <script>
     (() => {
-      // ====== CONFIG (Render URL) ======
-      const API_BASE = "https://live-log-2h3h.onrender.com";
-      const WS_URL   = "wss://live-log-2h3h.onrender.com/ws";
+      // ✅ Render(또는 다른 서버) 주소에 맞게만 바꿔서 쓰면 됨
+      const API_BASE = location.origin;     // 같은 도메인에서 서빙되면 그대로
+      const WS_URL   = (location.protocol === "https:" ? "wss://" : "ws://") + 
+location.host + "/ws";
 
-      const list   = document.getElementById("logList");
-      const lines  = document.getElementById("lines");
-      const input  = document.getElementById("logInput");
-      const prefix = document.getElementById("promptPrefix");
+      const logEl = document.getElementById("log");
+      const input = document.getElementById("realInput");
+      const catcher = document.getElementById("clickCatcher");
 
-      // make underline match input width
-      const syncUnderline = () => {
-        const w = getComputedStyle(input).width;
-        prefix.style.minWidth = w;
+      // 표시용 닉네임 (예: _____)
+      const nick = "_____";
+      document.getElementById("status").textContent = `${nick} is here for communal 
+listening`;
+
+      const fmt = (ts) => {
+        // 예시 사이트처럼 "MM/DD/YYYY, HH:MM:SS AM" 형태
+        const d = new Date(ts);
+        const mm = String(d.getMonth()+1).padStart(2,"0");
+        const dd = String(d.getDate()).padStart(2,"0");
+        const yyyy = d.getFullYear();
+        let hh = d.getHours();
+        const ampm = hh >= 12 ? "PM" : "AM";
+        hh = hh % 12; if (hh === 0) hh = 12;
+        const mi = String(d.getMinutes()).padStart(2,"0");
+        const ss = String(d.getSeconds()).padStart(2,"0");
+        return `${mm}/${dd}/${yyyy}, ${String(hh).padStart(2,"0")}:${mi}:${ss} 
+${ampm}`;
       };
-      syncUnderline();
-      window.addEventListener("resize", syncUnderline);
 
-      const fmt = (ts) => new Date(ts).toLocaleString("en-US", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true
-      });
-
-      const append = (ts, text, cls="") => {
+      const appendRow = (ts, text) => {
         const div = document.createElement("div");
-        div.className = `line ${cls}`.trim();
+        div.className = "row";
         div.textContent = `${fmt(ts)}  ${text}`;
-        lines.appendChild(div);
+        logEl.appendChild(div);
       };
 
-      const animateScrollToBottom = (duration = 900) => {
-        const start = list.scrollTop;
-        const end = list.scrollHeight;
+      const jumpToBottom = () => {
+        logEl.scrollTop = logEl.scrollHeight;
+      };
+
+      // ✅ 로드시 "아래로 쭉 내려가는 모션"
+      const smoothScrollToBottom = (durationMs = 900) => {
+        const start = logEl.scrollTop;
+        const end = logEl.scrollHeight;
+        const delta = end - start;
         const t0 = performance.now();
+
         const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
         const tick = (t) => {
-          const p = Math.min(1, (t - t0) / duration);
-          list.scrollTop = start + (end - start) * easeOutCubic(p);
+          const p = Math.min(1, (t - t0) / durationMs);
+          logEl.scrollTop = start + delta * easeOutCubic(p);
           if (p < 1) requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
       };
 
+      // 포커스 처리
+      const focusInput = () => input.focus();
+      catcher.addEventListener("mousedown", focusInput);
+      window.addEventListener("load", focusInput);
+
+      // 초기 로드 (기존 로그)
       const loadInitial = async () => {
         try {
           const res = await fetch(`${API_BASE}/api/messages`, { cache: "no-store" });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const rows = await res.json();
+          logEl.innerHTML = "";
+          rows.forEach(r => appendRow(r.ts, r.text));
 
-          lines.innerHTML = "";
-          rows.forEach(r => append(r.ts, r.text));
+          // ✅ 초기 로드시 모션
+          // (로그가 많으면 "위→아래"로 내려가는 느낌)
+          logEl.scrollTop = 0;
+          smoothScrollToBottom(1100);
 
-          // open motion
-          list.scrollTop = 0;
-          animateScrollToBottom(900);
         } catch (e) {
-          append(Date.now(), "[error] fetch failed", "err");
+          logEl.innerHTML = "";
+          appendRow(Date.now(), "[error] fetch failed");
         }
       };
 
-      // ====== WebSocket ======
+      // WebSocket
       let ws;
-
       const connectWS = () => {
         ws = new WebSocket(WS_URL);
-
-        ws.addEventListener("open", () => { /* no-op */ });
 
         ws.addEventListener("message", (ev) => {
           try {
             const msg = JSON.parse(ev.data);
+
+            // 서버가 type:"message" 로 보내는 형태 기준
             if (msg.type === "message") {
-              append(msg.ts, msg.text);
-              list.scrollTop = list.scrollHeight;
+              appendRow(msg.ts, msg.text);
+              jumpToBottom();
             }
-            if (msg.type === "error") {
-              append(Date.now(), `[error] ${msg.message || "unknown"}`, "err");
-              list.scrollTop = list.scrollHeight;
-            }
-          } catch {
-            // ignore
-          }
+          } catch {}
         });
 
         ws.addEventListener("close", () => {
-          append(Date.now(), "[error] websocket closed (reconnecting...)", "err");
-          list.scrollTop = list.scrollHeight;
-          setTimeout(connectWS, 1200);
-        });
-
-        ws.addEventListener("error", () => {
-          // close will follow; keep minimal
+          // 자동 재연결
+          setTimeout(connectWS, 800);
         });
       };
 
+      // ✅ 엔터로 전송 (서버는 payload.type === "post" 를 기대)
       input.addEventListener("keydown", (e) => {
         if (e.key !== "Enter") return;
+        e.preventDefault();
 
         const text = input.value.trim();
         if (!text) return;
@@ -194,15 +247,12 @@ Mono","Courier New", monospace;
         try {
           ws.send(JSON.stringify({ type: "post", text }));
         } catch {
-          append(Date.now(), "[error] send failed", "err");
-          list.scrollTop = list.scrollHeight;
+          appendRow(Date.now(), "[error] send failed");
         }
       });
 
-      // start
       loadInitial();
       connectWS();
-      input.focus();
     })();
   </script>
 </body>
