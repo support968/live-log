@@ -3,119 +3,186 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>live-log</title>
-  <link rel="stylesheet" href="/style.css" />
-</head>
-<body>
-  <main id="term">
-    <div id="logList" aria-live="polite"></div>
+  <title>Live Log</title>
 
-    <div id="inputBar">
-      <input
-        id="logInput"
-        autocomplete="off"
-        spellcheck="false"
-        placeholder="type and hit enter"
-      />
+  <style>
+    :root{
+      --bg:#000;
+      --fg:#ff2a2a;
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      height:100%;
+      margin:0;
+      background:var(--bg);
+      color:var(--fg);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation 
+Mono","Courier New", monospace;
+    }
+
+    #term{
+      height:100%;
+      width:100%;
+    }
+
+    #logList{
+      height:100%;
+      padding:18px;
+      overflow:auto;
+      white-space:pre;
+      font-size:14px;
+      line-height:1.35;
+    }
+
+    /* top prompt line */
+    #promptLine{
+      display:flex;
+      align-items:baseline;
+      gap:8px;
+      margin-bottom:10px;
+    }
+
+    #promptPrefix{
+      display:inline-block;
+      min-width:260px;        /* underline length */
+      border-bottom:1px solid var(--fg);
+      height:1em;
+    }
+
+    /* inline input (no white box) */
+    #logInput{
+      width:260px;
+      background:transparent;
+      border:0;
+      outline:none;
+      color:var(--fg);
+      font:inherit;
+      padding:0;
+      margin:0;
+      caret-color:var(--fg);
+    }
+
+    #lines .line{ color:var(--fg); }
+    #lines .err{ opacity:.85; }
+  </style>
+</head>
+
+<body>
+  <div id="term">
+    <div id="logList">
+      <div id="promptLine">
+        <span id="promptPrefix"></span>
+        <input id="logInput" autocomplete="off" spellcheck="false" />
+        <span id="promptSuffix">is here for communal listening</span>
+      </div>
+
+      <div id="lines"></div>
     </div>
-  </main>
+  </div>
 
   <script>
     (() => {
-      // 
-      const API_BASE = "";
-      const WS_URL = (location.protocol === "https:" ? "wss://" : "ws://") + 
-location.host + "/ws";
+      // ====== CONFIG (Render URL) ======
+      const API_BASE = "https://live-log-2h3h.onrender.com";
+      const WS_URL   = "wss://live-log-2h3h.onrender.com/ws";
 
-      const list  = document.getElementById("logList");
-      const input = document.getElementById("logInput");
+      const list   = document.getElementById("logList");
+      const lines  = document.getElementById("lines");
+      const input  = document.getElementById("logInput");
+      const prefix = document.getElementById("promptPrefix");
 
-      // 12/19/2025, 02:24:04 AM 
-      const fmt = new Intl.DateTimeFormat("en-US", {
+      // make underline match input width
+      const syncUnderline = () => {
+        const w = getComputedStyle(input).width;
+        prefix.style.minWidth = w;
+      };
+      syncUnderline();
+      window.addEventListener("resize", syncUnderline);
+
+      const fmt = (ts) => new Date(ts).toLocaleString("en-US", {
+        year: "numeric",
         month: "2-digit",
         day: "2-digit",
-        year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit",
         hour12: true
       });
 
-      const pad = (s) => String(s ?? "");
-
-      function makeLine(ts, text, cls = "") {
+      const append = (ts, text, cls="") => {
         const div = document.createElement("div");
-        div.className = "line " + cls;
+        div.className = `line ${cls}`.trim();
+        div.textContent = `${fmt(ts)}  ${text}`;
+        lines.appendChild(div);
+      };
 
-        const d = new Date(ts);
-        const left = fmt.format(d);
-        div.textContent = `${left}  ${pad(text)}`;
+      const animateScrollToBottom = (duration = 900) => {
+        const start = list.scrollTop;
+        const end = list.scrollHeight;
+        const t0 = performance.now();
+        const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
-        return div;
-      }
+        const tick = (t) => {
+          const p = Math.min(1, (t - t0) / duration);
+          list.scrollTop = start + (end - start) * easeOutCubic(p);
+          if (p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      };
 
-      function append(ts, text, cls = "") {
-        list.appendChild(makeLine(ts, text, cls));
-        list.scrollTop = list.scrollHeight;
-      }
-
-      async function loadInitial() {
+      const loadInitial = async () => {
         try {
           const res = await fetch(`${API_BASE}/api/messages`, { cache: "no-store" });
-          if (!res.ok) throw new Error("HTTP " + res.status);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const rows = await res.json();
 
-          list.innerHTML = "";
-          // 
-          append(Date.now(), "__________ is here for communal listening", "hint");
-
+          lines.innerHTML = "";
           rows.forEach(r => append(r.ts, r.text));
-          list.scrollTop = 0;
 
-          // 
-          requestAnimationFrame(() => autoScrollDown(1400));
+          // open motion
+          list.scrollTop = 0;
+          animateScrollToBottom(900);
         } catch (e) {
           append(Date.now(), "[error] fetch failed", "err");
         }
-      }
+      };
 
-      function autoScrollDown(durationMs = 1200) {
-        const start = performance.now();
-        const from = 0;
-        const to = Math.max(0, list.scrollHeight - list.clientHeight);
+      // ====== WebSocket ======
+      let ws;
 
-        function tick(t) {
-          const p = Math.min(1, (t - start) / durationMs);
-          // easeOutCubic
-          const eased = 1 - Math.pow(1 - p, 3);
-          list.scrollTop = from + (to - from) * eased;
-          if (p < 1) requestAnimationFrame(tick);
-        }
-        requestAnimationFrame(tick);
-      }
+      const connectWS = () => {
+        ws = new WebSocket(WS_URL);
 
-      // WebSocket
-      const ws = new WebSocket(WS_URL);
+        ws.addEventListener("open", () => { /* no-op */ });
 
-      ws.addEventListener("message", (ev) => {
-        try {
-          const msg = JSON.parse(ev.data);
-
-          // : { type:"message", ts, text, ... }
-          if (msg.type === "message" || msg.type === "new") {
-            append(msg.ts || Date.now(), msg.text || "");
+        ws.addEventListener("message", (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.type === "message") {
+              append(msg.ts, msg.text);
+              list.scrollTop = list.scrollHeight;
+            }
+            if (msg.type === "error") {
+              append(Date.now(), `[error] ${msg.message || "unknown"}`, "err");
+              list.scrollTop = list.scrollHeight;
+            }
+          } catch {
+            // ignore
           }
-          if (msg.type === "error") {
-            append(Date.now(), msg.message || "unknown", "err");
-          }
-        } catch {}
-      });
+        });
 
-      ws.addEventListener("close", () => {
-        append(Date.now(), "[error] websocket closed", "err");
-      });
+        ws.addEventListener("close", () => {
+          append(Date.now(), "[error] websocket closed (reconnecting...)", "err");
+          list.scrollTop = list.scrollHeight;
+          setTimeout(connectWS, 1200);
+        });
 
-      // Enter  (type: "post")
+        ws.addEventListener("error", () => {
+          // close will follow; keep minimal
+        });
+      };
+
       input.addEventListener("keydown", (e) => {
         if (e.key !== "Enter") return;
 
@@ -128,10 +195,13 @@ location.host + "/ws";
           ws.send(JSON.stringify({ type: "post", text }));
         } catch {
           append(Date.now(), "[error] send failed", "err");
+          list.scrollTop = list.scrollHeight;
         }
       });
 
+      // start
       loadInitial();
+      connectWS();
       input.focus();
     })();
   </script>
