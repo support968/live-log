@@ -1,85 +1,140 @@
-<!doctype html> <html lang="ko"> <head>
-
+<!doctype html>
+<html lang="en">
+<head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Live Log</title>
-  <style>
-    html, body { height: 100%; margin: 0; background:#000; color:#fff; 
-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
-"Liberation Mono", monospace; }
-    #liveLog { height: 100%; display: flex; flex-direction: column; }
-    #logList { flex: 1; overflow: auto; padding: 16px; line-height: 1.6; 
-white-space: pre-wrap; }
-    #logInput { width: 360px; max-width: calc(100% - 32px); margin: 12px 
-16px; padding: 8px 10px; border: 0; outline: none; }
-    .err { color:#ff3b30; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>live-log</title>
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <div id="liveLog">
-    <div id="logList"></div>
-    <input id="logInput" autocomplete="off" placeholder="type and hit 
-enter" />
-  </div>
+  <main id="term">
+    <div id="logList" aria-live="polite"></div>
 
+    <div id="inputBar">
+      <input
+        id="logInput"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="type and hit enter"
+      />
+    </div>
+  </main>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const API_BASE = "https://live-log-2h3h.onrender.com";
-  const WS_URL   = "wss://live-log-2h3h.onrender.com/ws";
+  <script>
+    (() => {
+      // 
+      const API_BASE = "";
+      const WS_URL = (location.protocol === "https:" ? "wss://" : "ws://") + 
+location.host + "/ws";
 
-  const list  = document.getElementById("logList");
-  const input = document.getElementById("logInput");
+      const list  = document.getElementById("logList");
+      const input = document.getElementById("logInput");
 
-  const append = (ts, text) => {
-    const div = document.createElement("div");
-    div.textContent = `${new Date(ts).toLocaleString()}  ${text}`;
-    list.appendChild(div);
-    list.scrollTop = list.scrollHeight;
-  };
+      // 12/19/2025, 02:24:04 AM 
+      const fmt = new Intl.DateTimeFormat("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+      });
 
-  async function loadInitial(){
-    try {
-      const res = await fetch(`${API_BASE}/api/messages`, { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const rows = await res.json();
-      list.innerHTML = "";
-      rows.forEach(r => append(r.ts, r.text));
-    } catch {
-      append(Date.now(), "[error] fetch failed");
-    }
-  }
+      const pad = (s) => String(s ?? "");
 
-  const ws = new WebSocket(WS_URL);
+      function makeLine(ts, text, cls = "") {
+        const div = document.createElement("div");
+        div.className = "line " + cls;
 
-  ws.addEventListener("message", (ev) => {
-    try{
-      const msg = JSON.parse(ev.data);
-      if (msg.type === "message") append(msg.ts, msg.text);
-    } catch {}
-  });
+        const d = new Date(ts);
+        const left = fmt.format(d);
+        div.textContent = `${left}  ${pad(text)}`;
 
-  input.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
+        return div;
+      }
 
-    const text = input.value.trim();
-    if (!text) return;
+      function append(ts, text, cls = "") {
+        list.appendChild(makeLine(ts, text, cls));
+        list.scrollTop = list.scrollHeight;
+      }
 
-    input.value = "";
+      async function loadInitial() {
+        try {
+          const res = await fetch(`${API_BASE}/api/messages`, { cache: "no-store" });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const rows = await res.json();
 
-    try {
-      ws.send(JSON.stringify({ type: "post", text }));
-    } catch {
-      append(Date.now(), "[error] send failed");
-    }
-  });
+          list.innerHTML = "";
+          // 
+          append(Date.now(), "__________ is here for communal listening", "hint");
 
-  loadInitial();
-});
-</script>
+          rows.forEach(r => append(r.ts, r.text));
+          list.scrollTop = 0;
 
+          // 
+          requestAnimationFrame(() => autoScrollDown(1400));
+        } catch (e) {
+          append(Date.now(), "[error] fetch failed", "err");
+        }
+      }
 
+      function autoScrollDown(durationMs = 1200) {
+        const start = performance.now();
+        const from = 0;
+        const to = Math.max(0, list.scrollHeight - list.clientHeight);
+
+        function tick(t) {
+          const p = Math.min(1, (t - start) / durationMs);
+          // easeOutCubic
+          const eased = 1 - Math.pow(1 - p, 3);
+          list.scrollTop = from + (to - from) * eased;
+          if (p < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      }
+
+      // WebSocket
+      const ws = new WebSocket(WS_URL);
+
+      ws.addEventListener("message", (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+
+          // : { type:"message", ts, text, ... }
+          if (msg.type === "message" || msg.type === "new") {
+            append(msg.ts || Date.now(), msg.text || "");
+          }
+          if (msg.type === "error") {
+            append(Date.now(), msg.message || "unknown", "err");
+          }
+        } catch {}
+      });
+
+      ws.addEventListener("close", () => {
+        append(Date.now(), "[error] websocket closed", "err");
+      });
+
+      // Enter  (type: "post")
+      input.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+
+        const text = input.value.trim();
+        if (!text) return;
+
+        input.value = "";
+
+        try {
+          ws.send(JSON.stringify({ type: "post", text }));
+        } catch {
+          append(Date.now(), "[error] send failed", "err");
+        }
+      });
+
+      loadInitial();
+      input.focus();
+    })();
+  </script>
 </body>
 </html>
 
