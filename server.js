@@ -57,6 +57,11 @@ app.get("/api/messages", (req, res) => {
   res.json(rows.reverse());
 });
 
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+
 // 헬스체크
 app.get("/health", (_, res) => res.send("ok"));
 
