@@ -1,260 +1,186 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>communal listening</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Communal Listening</title>
 
-  <style>
-    :root{
-      --bg:#000;
-      --fg:#ff2a2a;
-      --muted:#ff2a2a;
-      --pad:32px;
-      --font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
-"Liberation Mono", "Courier New", monospace;
-    }
+<style>
+:root{
+  --bg:#000;
+  --fg:#ff2a2a;
+  --font: 12px/1.6 "Courier New", Courier, monospace;
+}
 
-    html,body{
-      height:100%;
-      margin:0;
-      background:var(--bg);
-      color:var(--fg);
-      font:var(--font);
-    }
+*{ box-sizing:border-box; }
 
-    /* 전체 레이아웃 */
-    #wrap{
-      position:fixed;
-      inset:0;
-      padding: var(--pad);
-      box-sizing:border-box;
-    }
+html,body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  background:var(--bg);
+  color:var(--fg);
+  font:var(--font);
+  overflow:hidden;
+}
 
-    /* 상단 입력 라인 */
-    #topbar{
-      position:absolute;
-      left:var(--pad);
-      right:var(--pad);
-      top:var(--pad);
-      display:flex;
-      align-items:center;
-      gap:18px;
-      pointer-events:none; /* 상단바는 클릭 막고, 입력은 아래 input이 받음 */
-    }
 
-    #promptLine{
-      flex: 0 0 auto;
-      width: 260px;
-      height: 18px;
-      border-bottom: 1px solid var(--fg);
-      position:relative;
-    }
+#topbar{
+  position:fixed;
+  top:24px;
+  left:24px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  z-index:10;
+}
 
-    /* 커서 깜빡임 */
-    #caret{
-      position:absolute;
-      right:-2px;
-      bottom:-2px;
-      width:1px;
-      height:18px;
-      background:var(--fg);
-      animation: blink 1s step-end infinite;
-    }
-    @keyframes blink { 50% { opacity:0; } }
+#status{
+  white-space:nowrap;
+}
 
-    #status{
-      pointer-events:none;
-      white-space:nowrap;
-      opacity:0.95;
-    }
+#promptLine{
+  width:140px;               
+  height:16px;
+  border-bottom:1px solid var(--fg);
+  position:relative;
+}
 
-    /* 로그 영역 */
-    #log{
-      position:absolute;
-      left:var(--pad);
-      right:var(--pad);
-      top: calc(var(--pad) + 44px);
-      bottom: var(--pad);
-      overflow:auto;
-      padding-right: 12px;
-      box-sizing:border-box;
-      scroll-behavior:auto;
-    }
+#caret{
+  position:absolute;
+  right:0;
+  bottom:-1px;
+  width:1px;
+  height:16px;
+  background:var(--fg);
+  animation:blink 1s steps(1) infinite;
+}
 
-    /* 로그 한 줄 */
-    .row{
-      white-space: pre;
-    }
+@keyframes blink{
+  50%{ opacity:0; }
+}
 
-    /* 실제 입력은 화면에 안 보이게, 하지만 포커스/키 입력은 받게 */
-    #realInput{
-      position:absolute;
-      left:var(--pad);
-      top:var(--pad);
-      width: 260px;
-      height: 24px;
-      opacity:0;
-      border:0;
-      outline:0;
-      background:transparent;
-      color:transparent;
-      caret-color: transparent;
-      z-index: 10;
-    }
 
-    /* 클릭하면 어디서든 입력으로 포커스 */
-    #clickCatcher{
-      position:absolute;
-      inset:0;
-      background:transparent;
-      z-index: 5;
-    }
-  </style>
+#logWrap{
+  position:absolute;
+  top:80px;
+  left:24px;
+  right:24px;
+  bottom:24px;
+  overflow:hidden;
+}
+
+#log{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  transform:translateY(30px);
+  opacity:0;
+  animation:dropIn 1.4s ease forwards;
+}
+
+@keyframes dropIn{
+  to{
+    transform:translateY(0);
+    opacity:1;
+  }
+}
+
+.line{
+  white-space:pre;
+}
+
+/* hidden input */
+#hiddenInput{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
+}
+</style>
 </head>
 
 <body>
-  <div id="wrap">
-    <div id="clickCatcher"></div>
 
-    <div id="topbar">
-      <div id="promptLine"><div id="caret"></div></div>
-      <div id="status">_____ is here for communal listening</div>
-    </div>
+<div id="topbar">
+  <div id="status">OUR SPECIAL _____ </div>
+  <div id="promptLine"><div id="caret"></div></div>
+</div>
 
-    <input id="realInput" autocomplete="off" autocapitalize="off" spellcheck="false" />
+<div id="logWrap">
+  <div id="log"></div>
+</div>
 
-    <div id="log" aria-label="log"></div>
-  </div>
+<input id="hiddenInput" autocomplete="off" />
 
-  <script>
-    (() => {
-      // ✅ Render(또는 다른 서버) 주소에 맞게만 바꿔서 쓰면 됨
-      const API_BASE = location.origin;     // 같은 도메인에서 서빙되면 그대로
-      const WS_URL   = (location.protocol === "https:" ? "wss://" : "ws://") + 
-location.host + "/ws";
+<script>
+const logEl = document.getElementById("log");
+const input = document.getElementById("hiddenInput");
+const caret = document.getElementById("caret");
 
-      const logEl = document.getElementById("log");
-      const input = document.getElementById("realInput");
-      const catcher = document.getElementById("clickCatcher");
 
-      // 표시용 닉네임 (예: _____)
-      const nick = "_____";
-      document.getElementById("status").textContent = `${nick} is here for communal 
-listening`;
+document.body.addEventListener("click", ()=>input.focus());
+input.focus();
 
-      const fmt = (ts) => {
-        // 예시 사이트처럼 "MM/DD/YYYY, HH:MM:SS AM" 형태
-        const d = new Date(ts);
-        const mm = String(d.getMonth()+1).padStart(2,"0");
-        const dd = String(d.getDate()).padStart(2,"0");
-        const yyyy = d.getFullYear();
-        let hh = d.getHours();
-        const ampm = hh >= 12 ? "PM" : "AM";
-        hh = hh % 12; if (hh === 0) hh = 12;
-        const mi = String(d.getMinutes()).padStart(2,"0");
-        const ss = String(d.getSeconds()).padStart(2,"0");
-        return `${mm}/${dd}/${yyyy}, ${String(hh).padStart(2,"0")}:${mi}:${ss} 
-${ampm}`;
-      };
 
-      const appendRow = (ts, text) => {
-        const div = document.createElement("div");
-        div.className = "row";
-        div.textContent = `${fmt(ts)}  ${text}`;
-        logEl.appendChild(div);
-      };
+const wsProto = location.protocol === "https:" ? "wss" : "ws";
+const ws = new WebSocket(wsProto + "://" + location.host + "/ws");
 
-      const jumpToBottom = () => {
-        logEl.scrollTop = logEl.scrollHeight;
-      };
 
-      // ✅ 로드시 "아래로 쭉 내려가는 모션"
-      const smoothScrollToBottom = (durationMs = 900) => {
-        const start = logEl.scrollTop;
-        const end = logEl.scrollHeight;
-        const delta = end - start;
-        const t0 = performance.now();
+fetch("/api/messages")
+  .then(r=>r.json())
+  .then(rows=>{
+    rows.forEach(r=>append(r.ts, r.text));
+    scrollBottom();
+  });
 
-        const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+ws.onmessage = e=>{
+  const msg = JSON.parse(e.data);
+  if(msg.type === "message"){
+    append(msg.ts, msg.text);
+    scrollBottom();
+  }
+};
 
-        const tick = (t) => {
-          const p = Math.min(1, (t - t0) / durationMs);
-          logEl.scrollTop = start + delta * easeOutCubic(p);
-          if (p < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      };
+function append(ts,text){
+  const d = new Date(ts);
+  const time = d.toLocaleString("en-US",{
+    month:"2-digit",
+    day:"2-digit",
+    year:"numeric",
+    hour:"2-digit",
+    minute:"2-digit",
+    second:"2-digit",
+    hour12:true
+  });
 
-      // 포커스 처리
-      const focusInput = () => input.focus();
-      catcher.addEventListener("mousedown", focusInput);
-      window.addEventListener("load", focusInput);
+  const div = document.createElement("div");
+  div.className = "line";
+  div.textContent = `${time}  ${text}`;
+  logEl.appendChild(div);
+}
 
-      // 초기 로드 (기존 로그)
-      const loadInitial = async () => {
-        try {
-          const res = await fetch(`${API_BASE}/api/messages`, { cache: "no-store" });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const rows = await res.json();
-          logEl.innerHTML = "";
-          rows.forEach(r => appendRow(r.ts, r.text));
 
-          // ✅ 초기 로드시 모션
-          // (로그가 많으면 "위→아래"로 내려가는 느낌)
-          logEl.scrollTop = 0;
-          smoothScrollToBottom(1100);
+function scrollBottom(){
+  logEl.parentElement.scrollTop = logEl.parentElement.scrollHeight;
+}
 
-        } catch (e) {
-          logEl.innerHTML = "";
-          appendRow(Date.now(), "[error] fetch failed");
-        }
-      };
 
-      // WebSocket
-      let ws;
-      const connectWS = () => {
-        ws = new WebSocket(WS_URL);
+input.addEventListener("keydown", e=>{
+  if(e.key !== "Enter") return;
 
-        ws.addEventListener("message", (ev) => {
-          try {
-            const msg = JSON.parse(ev.data);
+  const text = input.value.trim();
+  if(!text) return;
 
-            // 서버가 type:"message" 로 보내는 형태 기준
-            if (msg.type === "message") {
-              appendRow(msg.ts, msg.text);
-              jumpToBottom();
-            }
-          } catch {}
-        });
+  ws.send(JSON.stringify({
+    type:"post",
+    text
+  }));
 
-        ws.addEventListener("close", () => {
-          // 자동 재연결
-          setTimeout(connectWS, 800);
-        });
-      };
+  input.value="";
+});
+</script>
 
-      // ✅ 엔터로 전송 (서버는 payload.type === "post" 를 기대)
-      input.addEventListener("keydown", (e) => {
-        if (e.key !== "Enter") return;
-        e.preventDefault();
-
-        const text = input.value.trim();
-        if (!text) return;
-
-        input.value = "";
-
-        try {
-          ws.send(JSON.stringify({ type: "post", text }));
-        } catch {
-          appendRow(Date.now(), "[error] send failed");
-        }
-      });
-
-      loadInitial();
-      connectWS();
-    })();
-  </script>
 </body>
 </html>
 
