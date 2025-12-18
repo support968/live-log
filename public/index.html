@@ -1,186 +1,202 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Communal Listening</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Guestbook</title>
 
 <style>
 :root{
   --bg:#000;
-  --fg:#ff2a2a;
-  --font: 12px/1.6 "Courier New", Courier, monospace;
+  --red:#ff2a2a;
+  --font: 22px/1.6 "Courier New", Courier, monospace;
+  --thin: 1px;
 }
 
 *{ box-sizing:border-box; }
-
 html,body{
-  margin:0;
-  padding:0;
-  width:100%;
-  height:100%;
+  margin:0; padding:0;
+  width:100%; height:100%;
   background:var(--bg);
-  color:var(--fg);
+  color:var(--red);
   font:var(--font);
   overflow:hidden;
 }
 
-
-#topbar{
+/* layout */
+#wrap{
   position:fixed;
-  top:24px;
-  left:24px;
-  display:flex;
-  align-items:center;
-  gap:14px;
-  z-index:10;
+  inset:0;
+  padding:28px 28px 22px 28px;
 }
 
-#status{
+/* top line */
+#top{
+  display:flex;
+  align-items:flex-end;
+  gap:18px;
   white-space:nowrap;
 }
 
-#promptLine{
-  width:140px;               
-  height:16px;
-  border-bottom:1px solid var(--fg);
-  position:relative;
+#brand{
+  letter-spacing:1px;
 }
 
-#caret{
-  position:absolute;
-  right:0;
-  bottom:-1px;
-  width:1px;
-  height:16px;
-  background:var(--fg);
-  animation:blink 1s steps(1) infinite;
+#name{
+  width:140px;                 /* 레퍼런스처럼 짧은 칸 */
+  background:transparent;
+  border:none;
+  border-bottom:var(--thin) solid var(--red);
+  outline:none;
+  color:var(--red);
+  font:inherit;
+  padding:0 0 2px 0;
+  caret-color:var(--red);
 }
 
-@keyframes blink{
-  50%{ opacity:0; }
+#rule{
+  flex:1;
+  border-bottom:var(--thin) solid var(--red);
+  transform:translateY(-6px);  /* 라인 baseline 맞춤 */
+  opacity:0.95;
 }
 
-
+/* log area */
 #logWrap{
   position:absolute;
-  top:80px;
-  left:24px;
-  right:24px;
-  bottom:24px;
-  overflow:hidden;
+  left:28px; right:28px;
+  top:92px; bottom:22px;
+  overflow:hidden;             /* 레퍼런스처럼 스크롤바 안보이게 */
 }
 
-#log{
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  transform:translateY(30px);
-  opacity:0;
-  animation:dropIn 1.4s ease forwards;
+#logScroller{
+  width:100%;
+  height:100%;
+  overflow:auto;               /* 내부는 스크롤 가능 */
+  scrollbar-width:none;
 }
+#logScroller::-webkit-scrollbar{ width:0; height:0; }
 
-@keyframes dropIn{
-  to{
-    transform:translateY(0);
-    opacity:1;
-  }
-}
-
-.line{
+#lineList{
   white-space:pre;
 }
 
-/* hidden input */
-#hiddenInput{
-  position:absolute;
-  opacity:0;
-  pointer-events:none;
+.line{
+  margin:0;
+  padding:0;
+}
+
+/* spacing closer to reference */
+@media (max-width: 900px){
+  :root{ --font: 18px/1.6 "Courier New", Courier, monospace; }
+  #name{ width:120px; }
 }
 </style>
 </head>
 
 <body>
+<div id="wrap">
 
-<div id="topbar">
-  <div id="status">OUR SPECIAL _____ </div>
-  <div id="promptLine"><div id="caret"></div></div>
+  <div id="top">
+    <div id="brand">OUR SPECIAL</div>
+    <input id="name" type="text" autocomplete="off" spellcheck="false" />
+    <div id="rule"></div>
+  </div>
+
+  <div id="logWrap">
+    <div id="logScroller">
+      <div id="lineList"></div>
+    </div>
+  </div>
+
 </div>
-
-<div id="logWrap">
-  <div id="log"></div>
-</div>
-
-<input id="hiddenInput" autocomplete="off" />
 
 <script>
-const logEl = document.getElementById("log");
-const input = document.getElementById("hiddenInput");
-const caret = document.getElementById("caret");
+const list = document.getElementById("lineList");
+const scroller = document.getElementById("logScroller");
+const nameInput = document.getElementById("name");
 
+/* focus */
+function focusInput(){ nameInput.focus({ preventScroll:true }); }
+document.addEventListener("click", focusInput);
+window.addEventListener("load", focusInput);
 
-document.body.addEventListener("click", ()=>input.focus());
-input.focus();
-
-
+/* ws */
 const wsProto = location.protocol === "https:" ? "wss" : "ws";
 const ws = new WebSocket(wsProto + "://" + location.host + "/ws");
 
-
-fetch("/api/messages")
-  .then(r=>r.json())
-  .then(rows=>{
-    rows.forEach(r=>append(r.ts, r.text));
-    scrollBottom();
-  });
-
-ws.onmessage = e=>{
-  const msg = JSON.parse(e.data);
-  if(msg.type === "message"){
-    append(msg.ts, msg.text);
-    scrollBottom();
-  }
-};
-
-function append(ts,text){
+/* format like reference: 12/19/2025, 03:18:52 AM */
+function fmt(ts){
   const d = new Date(ts);
-  const time = d.toLocaleString("en-US",{
-    month:"2-digit",
-    day:"2-digit",
-    year:"numeric",
-    hour:"2-digit",
-    minute:"2-digit",
-    second:"2-digit",
+  return d.toLocaleString("en-US", {
+    month:"2-digit", day:"2-digit", year:"numeric",
+    hour:"2-digit", minute:"2-digit", second:"2-digit",
     hour12:true
   });
+}
 
+function append(ts, text){
   const div = document.createElement("div");
   div.className = "line";
-  div.textContent = `${time}  ${text}`;
-  logEl.appendChild(div);
+  div.textContent = `${fmt(ts)}  ${text}`;
+  list.appendChild(div);
 }
 
+/* smooth scroll animation (reference-like “drop/scroll down”) */
+function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
 
-function scrollBottom(){
-  logEl.parentElement.scrollTop = logEl.parentElement.scrollHeight;
+function animateScrollToBottom(durationMs=1600){
+  const start = scroller.scrollTop;
+  const end = scroller.scrollHeight - scroller.clientHeight;
+  const delta = end - start;
+  const t0 = performance.now();
+
+  function step(now){
+    const p = Math.min(1, (now - t0) / durationMs);
+    scroller.scrollTop = start + delta * easeOutCubic(p);
+    if(p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
 }
 
+/* keep near-bottom on new messages (if user is already near bottom) */
+function isNearBottom(px=60){
+  return (scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop) < px;
+}
+function jumpBottom(){ scroller.scrollTop = scroller.scrollHeight; }
 
-input.addEventListener("keydown", e=>{
+/* initial load */
+fetch("/api/messages", { cache:"no-store" })
+  .then(r => r.json())
+  .then(rows => {
+    rows.forEach(r => append(r.ts, r.text));
+    scroller.scrollTop = 0;         // 시작은 위
+    animateScrollToBottom(1700);    // 그리고 아래로 쭉 내려감
+  })
+  .catch(()=>{});
+
+/* ws events */
+ws.addEventListener("message", (ev) => {
+  let msg;
+  try { msg = JSON.parse(ev.data); } catch { return; }
+  if(msg.type !== "message") return;
+
+  const stick = isNearBottom();
+  append(msg.ts, msg.text);
+  if(stick) jumpBottom();
+});
+
+/* send on Enter (and keep typing visible) */
+nameInput.addEventListener("keydown", (e) => {
   if(e.key !== "Enter") return;
 
-  const text = input.value.trim();
+  const text = nameInput.value.trim();
   if(!text) return;
 
-  ws.send(JSON.stringify({
-    type:"post",
-    text
-  }));
-
-  input.value="";
+  ws.send(JSON.stringify({ type:"post", text }));
+  nameInput.value = "";
 });
 </script>
-
 </body>
 </html>
 
