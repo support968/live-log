@@ -24,8 +24,8 @@ rel="stylesheet">
 
     body {
       display: flex;
-      align-items: center;
       justify-content: center;
+      align-items: center;
     }
 
     #container {
@@ -33,7 +33,7 @@ rel="stylesheet">
       width: 100%;
     }
 
-    /* ───────── INTRO ───────── */
+    /* ─── Wake text ─── */
     #wake {
       font-size: 13px;
       letter-spacing: 0.04em;
@@ -41,17 +41,25 @@ rel="stylesheet">
       min-height: 18px;
     }
 
-    /* ───────── INPUT ───────── */
+    /* ─── Input line ─── */
     #input-line {
-      margin-bottom: 26px;
+      display: inline-flex;
+      align-items: center;
       height: 18px;
+      margin-bottom: 28px;
+    }
+
+    #typed {
+      font-size: 13px;
+      letter-spacing: 0.04em;
     }
 
     #cursor {
       display: inline-block;
-      width: 4px;                 /* ✔ 30% 얇게 */
+      width: 4px;      /* 30% thinner */
       height: 14px;
       background: #ff2a2a;
+      margin-left: 2px;
       animation: blink 1s steps(1) infinite;
     }
 
@@ -59,13 +67,12 @@ rel="stylesheet">
       50% { opacity: 0; }
     }
 
-    /* ───────── LOGS ───────── */
+    /* ─── Logs ─── */
     #log-wrapper {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;                  /* ✔ 레퍼런스 행간 */
-      margin-top: 10px;
+      gap: 6px;
     }
 
     .log-line {
@@ -98,6 +105,7 @@ rel="stylesheet">
     <div id="wake"></div>
 
     <div id="input-line">
+      <span id="typed"></span>
       <span id="cursor"></span>
     </div>
 
@@ -109,6 +117,7 @@ rel="stylesheet">
   <script>
     const wakeEl = document.getElementById("wake");
     const cursor = document.getElementById("cursor");
+    const typedEl = document.getElementById("typed");
     const logWrapper = document.getElementById("log-wrapper");
     const input = document.getElementById("hidden-input");
 
@@ -132,30 +141,61 @@ rel="stylesheet">
       input.focus();
     }
 
+    /* ───────── Load existing logs ───────── */
+    async function loadLogs() {
+      try {
+        const res = await fetch("/api/messages");
+        const logs = await res.json();
+
+        logs.reverse().forEach(log => {
+          renderLog(log.text, log.created_at, false);
+        });
+      } catch (e) {
+        console.error("Failed to load logs");
+      }
+    }
+
     /* ───────── Input handling ───────── */
     input.addEventListener("input", () => {
-      // 영어만 허용
       input.value = input.value.replace(/[^a-zA-Z0-9 .,!?'-]/g, "");
+      typedEl.textContent = input.value;
     });
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && input.value.trim()) {
-        addLog(input.value.trim());
+        sendLog(input.value.trim());
         input.value = "";
+        typedEl.textContent = "";
       }
     });
 
     document.addEventListener("click", () => input.focus());
 
-    /* ───────── Logs ───────── */
-    function addLog(text) {
-      const time = new Date().toLocaleString("en-US", {
+    /* ───────── Send log ───────── */
+    function sendLog(text) {
+      renderLog(text, Date.now(), true);
+
+      fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+    }
+
+    /* ───────── Render log ───────── */
+    function renderLog(text, timestamp, animate = true) {
+      const time = new Date(timestamp).toLocaleString("en-US", {
         hour12: true
       });
 
       const line = document.createElement("div");
       line.className = "log-line";
       line.textContent = `${time} SOUTH KOREA ${text}`;
+
+      if (!animate) {
+        line.style.opacity = 1;
+        line.style.transform = "none";
+      }
 
       logWrapper.prepend(line);
 
@@ -169,6 +209,7 @@ rel="stylesheet">
     }
 
     typeWakeUp();
+    loadLogs();
   </script>
 </body>
 </html>
