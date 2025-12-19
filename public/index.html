@@ -2,10 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Live Log</title>
+<title>LIVE LOG</title>
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- IBM Plex Mono -->
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&display=swap" 
 rel="stylesheet">
 
@@ -13,212 +12,207 @@ rel="stylesheet">
 html, body {
   margin: 0;
   padding: 0;
-  background: black;
-  color: #ff1a1a;
-  font-family: "IBM Plex Mono", monospace;
+  background: #000;
+  color: #e00000;
+  font-family: 'IBM Plex Mono', monospace;
   height: 100%;
 }
 
-body {
+#screen {
+  height: 100%;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-}
-
-#wrap {
-  text-align: center;
-  width: 100%;
+  justify-content: center;
 }
 
 #wakeup {
   font-size: 14px;
-  margin-bottom: 18px;
-  min-height: 18px;
+  margin-bottom: 16px;
+  min-height: 20px;
 }
 
-#input-line {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 18px;
-  margin-bottom: 22px;
-}
-
-#typed {
+#inputLine {
   font-size: 14px;
+  height: 20px;
+  display: none;
+}
+
+#typedText {
   white-space: pre;
 }
 
 #cursor {
-  width: 1px;              /* ✔ 두께 30% 감소 */
-  height: 16px;
-  background: #ff1a1a;
-  margin-left: 6px;
+  display: inline-block;
+  width: 2px;              /* 커서 두께 30% 감소 */
+  height: 1em;
+  background: #e00000;
+  margin-left: 4px;
   animation: blink 1s steps(1) infinite;
-  display: none;
 }
 
 @keyframes blink {
   50% { opacity: 0; }
 }
 
-#logs {
-  font-size: 13px;
-  line-height: 1.55;       /* ✔ 레퍼런스에 맞춘 행간 */
-  letter-spacing: 0.02em;  /* ✔ 글자 간격 */
+#logWrapper {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .log {
+  font-size: 13px;
+  line-height: 1.55;       /* 레퍼런스와 유사한 행간 */
+  letter-spacing: 0.02em; /* 자간 */
   opacity: 0;
-  transform: translateY(-8px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateY(-6px);
+  animation: drop 0.35s ease forwards;
 }
 
-.log.show {
-  opacity: 1;
-  transform: translateY(0);
+@keyframes drop {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>
 </head>
 
 <body>
-<div id="wrap">
-
+<div id="screen">
   <div id="wakeup"></div>
 
-  <div id="input-line">
-    <span id="typed"></span>
-    <span id="cursor"></span>
+  <div id="inputLine">
+    <span id="typedText"></span><span id="cursor"></span>
   </div>
 
-  <div id="logs"></div>
-
+  <div id="logWrapper"></div>
 </div>
 
 <script>
+/* ─────────────────────────────
+   1. Wake up 타이핑
+───────────────────────────── */
 const wakeupEl = document.getElementById("wakeup");
-const typedEl  = document.getElementById("typed");
-const cursorEl = document.getElementById("cursor");
-const logsEl   = document.getElementById("logs");
+const inputLine = document.getElementById("inputLine");
+const typedTextEl = document.getElementById("typedText");
+const logWrapper = document.getElementById("logWrapper");
 
-let buffer = "";
-let readyForInput = false;
+const wakeupText = "Wake up";
+let i = 0;
 
-// ─────────────────────────────
-// Utils
-// ─────────────────────────────
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// ─────────────────────────────
-// Wake up typing
-// ─────────────────────────────
-async function playWakeup() {
-  const text = "Wake up";
-  for (const c of text) {
-    wakeupEl.textContent += c;
-    await sleep(90);
+function typeWakeUp() {
+  if (i < wakeupText.length) {
+    wakeupEl.textContent += wakeupText[i++];
+    setTimeout(typeWakeUp, 120);
+  } else {
+    typeDots(0);
   }
-
-  for (let i = 0; i < 3; i++) {
-    await sleep(350);
-    wakeupEl.textContent += ".";
-  }
-
-  await sleep(400);
-  cursorEl.style.display = "inline-block";
-  readyForInput = true;
 }
 
-// ─────────────────────────────
-// Initial logs (animated)
-// ─────────────────────────────
-async function loadLogs() {
+function typeDots(count) {
+  if (count < 3) {
+    wakeupEl.textContent += ".";
+    setTimeout(() => typeDots(count + 1), 400);
+  } else {
+    setTimeout(() => {
+      inputLine.style.display = "block";
+      enableTyping();
+      loadInitialLogs();
+      connectWS();
+    }, 500);
+  }
+}
+
+typeWakeUp();
+
+/* ─────────────────────────────
+   2. 타이핑 입력 (영어만)
+───────────────────────────── */
+let buffer = "";
+
+function enableTyping() {
+  document.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      if (!buffer.trim()) return;
+      sendLog(buffer.trim());
+      buffer = "";
+      typedTextEl.textContent = "";
+      return;
+    }
+
+    if (e.key === "Backspace") {
+      buffer = buffer.slice(0, -1);
+      typedTextEl.textContent = buffer;
+      return;
+    }
+
+    if (/^[a-zA-Z0-9 .,!?'-]$/.test(e.key)) {
+      buffer += e.key;
+      typedTextEl.textContent = buffer;
+    }
+  });
+}
+
+/* ─────────────────────────────
+   3. 로그 DOM 추가
+───────────────────────────── */
+function renderLog({ created_at, country, text }, prepend = false) {
+  const d = new Date(created_at);
+  const line = document.createElement("div");
+  line.className = "log";
+  line.textContent =
+    `${d.toLocaleString("en-US")} ${country} ${text}`;
+
+  if (prepend) {
+    logWrapper.prepend(line);
+  } else {
+    logWrapper.appendChild(line);
+  }
+}
+
+/* ─────────────────────────────
+   4. 초기 로그 로드
+───────────────────────────── */
+async function loadInitialLogs() {
   const res = await fetch("/api/messages");
   const data = await res.json();
 
-  // 오래된 것부터 → 애니메이션
-  for (let i = data.length - 1; i >= 0; i--) {
-    addLog(data[i]);
-    await sleep(120);
-  }
+  data
+    .sort((a, b) => b.created_at - a.created_at)
+    .forEach(item => renderLog(item, false));
 }
 
-// ─────────────────────────────
-// Add log line
-// ─────────────────────────────
-function addLog(item, instant = false) {
-  if (!item?.text || !item?.created_at) return;
+/* ─────────────────────────────
+   5. WebSocket 실시간 수신
+───────────────────────────── */
+let ws;
 
-  const time = new Date(item.created_at).toLocaleString("en-US", {
-    hour12: true
+function connectWS() {
+  ws = new WebSocket(
+    location.protocol === "https:"
+      ? `wss://${location.host}`
+      : `ws://${location.host}`
+  );
+
+  ws.onmessage = e => {
+    const data = JSON.parse(e.data);
+    renderLog(data, true); // 🔥 즉시 화면에 추가
+  };
+}
+
+/* ─────────────────────────────
+   6. 로그 전송
+───────────────────────────── */
+async function sendLog(text) {
+  await fetch("/api/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text })
   });
-
-  const div = document.createElement("div");
-  div.className = "log";
-  div.textContent = `${time} SOUTH KOREA ${item.text}`;
-
-  logsEl.prepend(div);
-
-  if (instant) {
-    div.classList.add("show");
-  } else {
-    requestAnimationFrame(() => div.classList.add("show"));
-  }
 }
-
-// ─────────────────────────────
-// Input typing
-// ─────────────────────────────
-document.addEventListener("keydown", async e => {
-  if (!readyForInput) return;
-
-  if (e.key === "Backspace") {
-    buffer = buffer.slice(0, -1);
-    typedEl.textContent = buffer;
-    return;
-  }
-
-  if (e.key === "Enter") {
-    if (!buffer.trim()) return;
-
-    await fetch("/api/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: buffer })
-    });
-
-    buffer = "";
-    typedEl.textContent = "";
-    return;
-  }
-
-  if (e.key.length === 1 && /^[a-zA-Z0-9 .,!?'"]$/.test(e.key)) {
-    buffer += e.key;
-    typedEl.textContent = buffer;
-  }
-});
-
-// ─────────────────────────────
-// WebSocket (real-time)
-// ─────────────────────────────
-const ws = new WebSocket(
-  location.protocol === "https:"
-    ? `wss://${location.host}`
-    : `ws://${location.host}`
-);
-
-ws.onmessage = e => {
-  const item = JSON.parse(e.data);
-  addLog(item, true);
-};
-
-// ─────────────────────────────
-// Start
-// ─────────────────────────────
-(async () => {
-  await playWakeup();
-  await loadLogs();
-})();
 </script>
 </body>
 </html>
