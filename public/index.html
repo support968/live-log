@@ -6,34 +6,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <style>
-  :root {
-    --bg: #000;
-    --red: #ff2a2a;
-  }
+  :root { --bg:#000; --red:#ff2a2a; }
 
-  * {
-    box-sizing: border-box;
-  }
-
+  * { box-sizing: border-box; }
   html, body {
-    margin: 0;
-    padding: 0;
+    margin: 0; padding: 0;
     background: var(--bg);
     color: var(--red);
     font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
     font-size: 14px;
     line-height: 1.45;
   }
-
-  body {
-    padding: 24px;
-  }
+  body { padding: 24px; }
 
   /* ===== HEADER INPUT LINE ===== */
   #prompt {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     margin-bottom: 24px;
     white-space: nowrap;
   }
@@ -43,17 +33,19 @@
     letter-spacing: 0.08em;
   }
 
+  /* 짧은 밑줄 */
   #prompt .line {
-    flex: 1;
+    width: clamp(220px, 22vw, 360px);
     height: 1px;
     background: var(--red);
     position: relative;
   }
 
-  #prompt .input {
+  /* 밑줄 위에 입력을 얹음 */
+  #prompt .inputWrap {
     position: absolute;
     left: 0;
-    top: -0.6em;
+    top: -0.62em;
     display: inline-flex;
     align-items: center;
   }
@@ -66,7 +58,7 @@
     font-family: inherit;
     font-size: inherit;
     padding: 0;
-    width: 240px;
+    width: 320px; /* 입력 보이는 길이(필요하면 줄여도 됨) */
   }
 
   .cursor {
@@ -74,32 +66,16 @@
     margin-left: 2px;
     animation: blink 1s steps(1) infinite;
   }
+  @keyframes blink { 50% { opacity: 0; } }
 
-  @keyframes blink {
-    50% { opacity: 0; }
-  }
-
+  /* ===== LOG LIST ===== */
   #log {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    animation: reveal 0.8s ease-out both;
   }
 
-  @keyframes reveal {
-    from {
-      opacity: 0;
-      transform: translateY(-12px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .row {
-    white-space: pre;
-  }
+  .row { white-space: pre; }
 </style>
 </head>
 
@@ -108,7 +84,7 @@
 <div id="prompt">
   <div class="label">OUR SPECIAL</div>
   <div class="line">
-    <div class="input">
+    <div class="inputWrap">
       <input id="input" autocomplete="off" spellcheck="false" />
       <div class="cursor">_</div>
     </div>
@@ -119,8 +95,8 @@
 
 <script>
   const API_BASE = location.origin;
-  const WS_URL = (location.protocol === "https:" ? "wss://" : "ws://") + location.host 
-+ "/ws";
+  const WS_URL =
+    (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
 
   const logEl = document.getElementById("log");
   const input = document.getElementById("input");
@@ -145,37 +121,57 @@
     logEl.appendChild(row);
   }
 
-  fetch(API_BASE + "/api/messages", { cache: "no-store" })
-    .then(r => r.json())
-    .then(rows => {
-      rows.forEach(r => append(r.ts, r.text));
-      window.scrollTo(0, document.body.scrollHeight);
-    });
+  function scrollBottom(instant = false) {
+    const opts = instant ? { top: document.body.scrollHeight } :
+      { top: document.body.scrollHeight, behavior: "smooth" };
+    window.scrollTo(opts);
+  }
+
+  // ✅ 초기 로그: 한 줄씩 빠르게 “쏟아지듯” 출력
+  async function playInitial(rows) {
+    // 원하는 속도: 12~25ms 사이 추천
+    const delayMs = 18;
+
+    for (const r of rows) {
+      append(r.ts, r.text);
+      scrollBottom(true);
+      await new Promise(res => setTimeout(res, delayMs));
+    }
+    // 마지막에 살짝 부드럽게 정렬
+    scrollBottom(false);
+  }
+
+  (async function init() {
+    try {
+      const res = await fetch(API_BASE + "/api/messages", { cache: "no-store" });
+      const rows = await res.json();
+      await playInitial(rows);
+    } catch (e) {
+      append(Date.now(), "[error] fetch failed");
+    }
+  })();
 
   // WebSocket
   const ws = new WebSocket(WS_URL);
 
-  ws.addEventListener("message", e => {
+  ws.addEventListener("message", (e) => {
     try {
       const msg = JSON.parse(e.data);
       if (msg.type === "message") {
         append(msg.ts, msg.text);
-        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+        scrollBottom(false);
       }
     } catch {}
   });
 
-  input.addEventListener("keydown", e => {
+  // Enter 전송
+  input.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
 
     const text = input.value.trim();
     if (!text) return;
 
-    ws.send(JSON.stringify({
-      type: "post",
-      text
-    }));
-
+    ws.send(JSON.stringify({ type: "post", text }));
     input.value = "";
   });
 
