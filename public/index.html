@@ -30,18 +30,19 @@ rel="stylesheet">
     margin-bottom: 14px;
   }
 
-  .cursor-line {
-    height: 18px;
+  .input-line {
+    font-size: 14px;
+    min-height: 18px;
     margin-bottom: 18px;
-    display: none;
   }
 
   .cursor {
     display: inline-block;
-    width: 5px; /* 30% thinner */
+    width: 5px;   /* 30% thinner */
     height: 14px;
     background: red;
     animation: blink 1s step-start infinite;
+    vertical-align: bottom;
   }
 
   @keyframes blink {
@@ -71,8 +72,8 @@ rel="stylesheet">
 <div class="wrap">
   <div id="wake" class="wake"></div>
 
-  <div id="cursorLine" class="cursor-line">
-    <span class="cursor"></span>
+  <div id="inputLine" class="input-line" style="display:none;">
+    <span id="typed"></span><span class="cursor"></span>
   </div>
 
   <div id="logs" class="logs"></div>
@@ -80,34 +81,62 @@ rel="stylesheet">
 
 <script>
 const wakeEl = document.getElementById("wake");
-const cursorLine = document.getElementById("cursorLine");
+const inputLine = document.getElementById("inputLine");
+const typedEl = document.getElementById("typed");
 const logsEl = document.getElementById("logs");
+
+let buffer = "";
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /* 1. Wake up 타이핑 */
 async function typeWakeUp() {
   const text = "Wake up";
-  wakeEl.innerHTML = "";
-
   for (let i = 0; i < text.length; i++) {
-    wakeEl.innerHTML += text[i];
+    wakeEl.textContent += text[i];
     await sleep(120);
   }
-
   for (let i = 0; i < 3; i++) {
     await sleep(400);
-    wakeEl.innerHTML += ".";
+    wakeEl.textContent += ".";
   }
 }
 
-/* 2. 커서 표시 */
-function showCursor() {
-  cursorLine.style.display = "block";
+/* 2. 입력 시작 */
+function enableTyping() {
+  inputLine.style.display = "block";
+  window.addEventListener("keydown", onKey);
 }
 
-/* 3. 로그 한 줄씩 출력 */
-async function showLogs() {
+/* 3. 키 입력 처리 */
+function onKey(e) {
+  if (e.key === "Backspace") {
+    buffer = buffer.slice(0, -1);
+  } else if (e.key === "Enter") {
+    submit();
+    return;
+  } else if (e.key.length === 1 && /^[a-zA-Z0-9 .,!?'-]$/.test(e.key)) {
+    buffer += e.key;
+  }
+  typedEl.textContent = buffer;
+}
+
+/* 4. 서버로 전송 */
+async function submit() {
+  if (!buffer.trim()) return;
+
+  await fetch("/api/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: buffer })
+  });
+
+  buffer = "";
+  typedEl.textContent = "";
+}
+
+/* 5. 로그 불러오기 */
+async function loadLogs() {
   const res = await fetch("/api/messages");
   const data = await res.json();
 
@@ -124,7 +153,6 @@ async function showLogs() {
 
     logsEl.appendChild(div);
     requestAnimationFrame(() => div.classList.add("show"));
-
     await sleep(120);
   }
 }
@@ -133,9 +161,9 @@ async function showLogs() {
 (async function start() {
   await typeWakeUp();
   await sleep(300);
-  showCursor();
+  enableTyping();
   await sleep(600);
-  await showLogs();
+  await loadLogs();
 })();
 </script>
 </body>
