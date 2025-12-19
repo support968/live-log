@@ -1,7 +1,7 @@
 import express from "express";
 import { WebSocketServer } from "ws";
 import pkg from "pg";
-import fetch from "node-fetch";
+
 import path from "path";
 import { fileURLToPath } from "url";
 
