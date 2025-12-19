@@ -142,18 +142,28 @@ rel="stylesheet">
     }
 
     /* ───────── Load existing logs ───────── */
-    async function loadLogs() {
-      try {
-        const res = await fetch("/api/messages");
-        const logs = await res.json();
+async function loadLogs() {
+  try {
+    const res = await fetch("/api/messages");
+    const logs = await res.json();
 
-        logs.reverse().forEach(log => {
-          renderLog(log.text, log.created_at, false);
-        });
-      } catch (e) {
-        console.error("Failed to load logs");
-      }
+    // 오래된 로그부터 → 최신 순
+    const ordered = logs.slice().reverse();
+
+    for (let i = 0; i < ordered.length; i++) {
+      const log = ordered[i];
+      await wait(120); // ⬅ 줄 간 딜레이 (레퍼런스 느낌)
+      renderLog(log.text, log.created_at, true);
     }
+  } catch (e) {
+    console.error("Failed to load logs");
+  }
+}
+
+
+
+
+
 
     /* ───────── Input handling ───────── */
     input.addEventListener("input", () => {
