@@ -1,6 +1,7 @@
 import express from "express";
 import { WebSocketServer } from "ws";
 import pkg from "pg";
+import fetch from "node-fetch";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -16,23 +17,20 @@ const PORT = process.env.PORT || 3000;
 ───────────────────────────── */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl:
-    process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false,
+  ssl: process.env.DATABASE_URL.includes("localhost")
+    ? false
+    : { rejectUnauthorized: false },
 });
 
-// 테이블 초기화 (최초 1회 자동 실행)
-async function initDB() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS logs (
-      id SERIAL PRIMARY KEY,
-      text TEXT NOT NULL,
-      created_at BIGINT NOT NULL
-    )
-  `);
-}
-initDB();
+// 테이블 생성
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS logs (
+    id SERIAL PRIMARY KEY,
+    text TEXT NOT NULL,
+    country TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )
+`);
 
 /* ─────────────────────────────
    Express
@@ -41,20 +39,16 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// 기존 로그 불러오기
 app.get("/api/messages", async (req, res) => {
-  try {
-    const { rows } = await pool.query(
-      "SELECT text, created_at FROM logs ORDER BY created_at ASC LIMIT 500"
-    );
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json([]);
-  }
+  const { rows } = await pool.query(`
+    SELECT text, country, created_at
+    FROM logs
+    ORDER BY created_at DESC
+    LIMIT 200
+  `);
+  res.json(rows);
 });
 
-// 헬스체크
 app.get("/health", (_, res) => res.send("ok"));
 
 const server = app.listen(PORT, () => {
@@ -66,7 +60,23 @@ const server = app.listen(PORT, () => {
 ───────────────────────────── */
 const wss = new WebSocketServer({ server });
 
-wss.on("connection", (ws) => {
+async function getCountry(ip) {
+  try {
+    const res = await fetch(`https://ipapi.co/${ip}/json/`);
+    const data = await res.json();
+    return data.country_name || "UNKNOWN";
+  } catch {
+    return "UNKNOWN";
+  }
+}
+
+wss.on("connection", async (ws, req) => {
+  const ip =
+    req.headers["x-forwarded-for"]?.split(",")[0] ||
+    req.socket.remoteAddress;
+
+  const country = await getCountry(ip);
+
   ws.on("message", async (raw) => {
     let data;
     try {
@@ -76,32 +86,24 @@ wss.on("connection", (ws) => {
     }
 
     if (!data.text || typeof data.text !== "string") return;
-
     const text = data.text.trim();
     if (!text) return;
 
-    const createdAt = Date.now();
+    const { rows } = await pool.query(
+      `
+      INSERT INTO logs (text, country)
+      VALUES ($1, $2)
+      RETURNING text, country, created_at
+    `,
+      [text, country]
+    );
 
-    try {
-      // DB 저장
-      await pool.query(
-        "INSERT INTO logs (text, created_at) VALUES ($1, $2)",
-        [text, createdAt]
-      );
+    const payload = JSON.stringify(rows[0]);
 
-      const payload = JSON.stringify({
-        text,
-        created_at: createdAt,
-      });
-
-      // 모든 클라이언트에 브로드캐스트
-      wss.clients.forEach((client) => {
-        if (client.readyState === 1) {
-          client.send(payload);
-        }
-      });
-    } catch (err) {
-      console.error(err);
-    }
+    wss.clients.forEach((client) => {
+      if (client.readyState === 1) {
+        client.send(payload);
+      }
+    });
   });
 });
