@@ -1,57 +1,48 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <title>Communal Log</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
 <style>
-  * {
-    box-sizing: border-box;
-  }
-
-  body {
+  html, body {
     margin: 0;
+    padding: 0;
     background: #000;
-    color: #ff1a1a;
+    color: #ff0000;
     font-family: "Courier New", Courier, monospace;
-    font-size: 14px;
+    font-size: 13px;
     overflow: hidden;
   }
 
   #wrap {
-    padding: 24px;
-  }
-
-  /* 헤더 */
-  #header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 24px;
-  }
-
-  #header .title {
-    margin-right: 12px;
-  }
-
-  #header .line {
-    width: 140px;
-    height: 1px;
-    background: #ff1a1a;
-  }
-
-  /* 로그 영역 */
-  #log {
     position: relative;
+    width: 100vw;
+    height: 100vh;
+    padding: 40px;
+    box-sizing: border-box;
   }
 
-  .row {
-    white-space: pre;
+  #intro {
+    text-align: center;
+    margin-top: 60px;
     line-height: 1.6;
+    white-space: pre;
+  }
+
+  #log-area {
+    position: absolute;
+    top: 180px;
+    left: 40px;
+    right: 40px;
+    bottom: 80px;
+    overflow: hidden;
+  }
+
+  .log-line {
     opacity: 0;
-    transform: translateY(-12px);
-    animation: drop 0.25s ease-out forwards;
+    transform: translateY(-6px);
+    animation: drop 0.25s ease forwards;
+    white-space: nowrap;
   }
 
   @keyframes drop {
@@ -61,62 +52,149 @@
     }
   }
 
-  /* 입력 */
-  #input {
-    margin-top: 32px;
-  }
-
-  #prompt {
-    display: flex;
-    align-items: center;
-  }
-
-  #typing {
-    min-width: 10px;
+  #input-line {
+    position: absolute;
+    bottom: 40px;
+    left: 40px;
+    color: #ff0000;
+    white-space: nowrap;
   }
 
   #cursor {
+    display: inline-block;
     width: 8px;
-    height: 14px;
-    background: #ff1a1a;
     margin-left: 2px;
     animation: blink 1s steps(1) infinite;
   }
 
   @keyframes blink {
-    50% {
-      opacity: 0;
-    }
-  }
-
-  input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
+    50% { opacity: 0; }
   }
 </style>
 </head>
-
 <body>
 <div id="wrap">
 
-  <div id="header">
-    <div class="title">_____ is here for communal listening</div>
-    <div class="line"></div>
-  </div>
+  <div id="intro"></div>
 
-  <div id="log"></div>
+  <div id="log-area"></div>
 
-  <div id="input">
-    <div id="prompt">
-      <div id="typing"></div>
-      <div id="cursor"></div>
-    </div>
-    <input id="hiddenInput" autocomplete="off" />
+  <div id="input-line" style="display:none;">
+    <span id="input-text"></span><span id="cursor">▌</span>
   </div>
 
 </div>
 
 <script>
-const logEl = document.getElementById("lo
+const introLines = [
+  "Wake up... You are inside the system.",
+  "KNOK, KNOK, KNOK,"
+];
+
+const introEl = document.getElementById("intro");
+const logArea = document.getElementById("log-area");
+const inputLine = document.getElementById("input-line");
+const inputText = document.getElementById("input-text");
+
+let introIndex = 0;
+let charIndex = 0;
+
+// ─────────────────────────────
+// 타이핑 인트로
+// ─────────────────────────────
+function typeIntro() {
+  if (introIndex >= introLines.length) {
+    introEl.innerHTML += "\n\n";
+    startLogs();
+    return;
+  }
+
+  const line = introLines[introIndex];
+  if (charIndex < line.length) {
+    introEl.innerHTML += line[charIndex];
+    charIndex++;
+    setTimeout(typeIntro, 40);
+  } else {
+    introEl.innerHTML += "\n";
+    introIndex++;
+    charIndex = 0;
+    setTimeout(typeIntro, 300);
+  }
+}
+
+typeIntro();
+
+// ─────────────────────────────
+// 로그 렌더
+// ─────────────────────────────
+function renderLog(text, time, country, instant = false) {
+  const line = document.createElement("div");
+  line.className = "log-line";
+  line.textContent = `${time}  ${country}  ${text}`;
+  if (instant) line.style.animationDelay = "0s";
+  logArea.prepend(line);
+}
+
+// ─────────────────────────────
+// 초기 로그 로드 (한 줄씩 떨어짐)
+// ─────────────────────────────
+async function startLogs() {
+  inputLine.style.display = "block";
+
+  const res = await fetch("/api/messages");
+  const logs = await res.json();
+
+  let delay = 0;
+  logs.reverse().forEach(log => {
+    setTimeout(() => {
+      renderLog(
+        log.text,
+        new Date(log.created_at).toLocaleString("en-US"),
+        log.country || "UNKNOWN"
+      );
+    }, delay);
+    delay += 60;
+  });
+
+  connectWS();
+}
+
+// ─────────────────────────────
+// WebSocket
+// ─────────────────────────────
+function connectWS() {
+  const ws = new WebSocket(
+    (location.protocol === "https:" ? "wss://" : "ws://") + location.host
+  );
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    renderLog(
+      data.text,
+      new Date(data.created_at).toLocaleString("en-US"),
+      data.country || "UNKNOWN"
+    );
+  };
+
+  // 입력
+  let buffer = "";
+  document.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      if (buffer.trim()) {
+        ws.send(JSON.stringify({ text: buffer }));
+        buffer = "";
+        inputText.textContent = "";
+      }
+    } else if (e.key === "Backspace") {
+      buffer = buffer.slice(0, -1);
+      inputText.textContent = buffer;
+    } else if (e.key.length === 1) {
+      buffer += e.key;
+      inputText.textContent = buffer;
+    }
+  });
+}
+</script>
+</body>
+</html>
 
