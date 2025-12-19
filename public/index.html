@@ -3,48 +3,55 @@
 <head>
   <meta charset="UTF-8" />
   <title>Live Log</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:400&display=swap" 
+rel="stylesheet">
+
+  <style>
     html, body {
       margin: 0;
       padding: 0;
-      width: 100%;
-      height: 100%;
-      background: black;
+      background: #000;
       color: #ff2a2a;
-      font-family: "Courier New", Courier, monospace;
+      font-family: "IBM Plex Mono", monospace;
+      height: 100%;
       overflow: hidden;
     }
 
     body {
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
     }
 
-    #intro {
+    #container {
       text-align: center;
-      font-size: 14px;
-      margin-bottom: 40px;
-      min-height: 40px;
+      width: 100%;
     }
 
+    /* ───────── INTRO ───────── */
+    #wake {
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      margin-bottom: 18px;
+      min-height: 18px;
+    }
+
+    /* ───────── INPUT ───────── */
     #input-line {
-      display: flex;
-      align-items: center;
-      font-size: 14px;
-      margin-bottom: 30px;
+      margin-bottom: 26px;
+      height: 18px;
     }
 
     #cursor {
-      width: 10px;
-      height: 16px;
+      display: inline-block;
+      width: 4px;                 /* ✔ 30% 얇게 */
+      height: 14px;
       background: #ff2a2a;
-      margin-left: 6px;
       animation: blink 1s steps(1) infinite;
     }
 
@@ -52,140 +59,116 @@
       50% { opacity: 0; }
     }
 
-    #hidden-input {
+    /* ───────── LOGS ───────── */
+    #log-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;                  /* ✔ 레퍼런스 행간 */
+      margin-top: 10px;
+    }
+
+    .log-line {
+      font-size: 12.5px;
+      letter-spacing: 0.03em;
+      line-height: 1.6;
+      opacity: 0;
+      transform: translateY(-8px);
+      animation: dropIn 0.18s ease-out forwards;
+      white-space: nowrap;
+    }
+
+    @keyframes dropIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    input {
       position: absolute;
       opacity: 0;
       pointer-events: none;
     }
-
-    #logs {
-      width: 100%;
-      max-width: 520px;
-      text-align: center;
-      font-size: 13px;
-      line-height: 1.6;
-    }
-
-    .log {
-      opacity: 0;
-      animation: drop 0.25s ease-out forwards;
-    }
-
-    @keyframes drop {
-      from {
-        transform: translateY(-8px);
-        opacity: 0;
-      }
-      to {
-        transform: translateY(0);
-        opacity: 1;
-      }
-    }
   </style>
 </head>
+
 <body>
+  <div id="container">
+    <div id="wake"></div>
 
-  <div id="intro"></div>
+    <div id="input-line">
+      <span id="cursor"></span>
+    </div>
 
-  <div id="input-line">
-    <span id="typed-text"></span>
-    <div id="cursor"></div>
+    <div id="log-wrapper"></div>
   </div>
 
   <input id="hidden-input" autocomplete="off" />
 
-  <div id="logs"></div>
-
   <script>
-    const intro = document.getElementById("intro");
-    const typedText = document.getElementById("typed-text");
+    const wakeEl = document.getElementById("wake");
+    const cursor = document.getElementById("cursor");
+    const logWrapper = document.getElementById("log-wrapper");
     const input = document.getElementById("hidden-input");
-    const logsEl = document.getElementById("logs");
 
-    // ─────────────────────
-    // INTRO ANIMATION
-    // ─────────────────────
-    async function typeIntro() {
-      await typeText("Wake up", 80);
-      await sleep(500);
-      await typeDots();
-    }
+    cursor.style.display = "none";
 
-    function typeText(text, speed) {
-      return new Promise(resolve => {
-        let i = 0;
-        const interval = setInterval(() => {
-          intro.textContent += text[i];
-          i++;
-          if (i >= text.length) {
-            clearInterval(interval);
-            resolve();
-          }
-        }, speed);
-      });
-    }
+    /* ───────── Wake up typing ───────── */
+    async function typeWakeUp() {
+      wakeEl.textContent = "";
+      await wait(300);
 
-    async function typeDots() {
-      for (let i = 0; i < 3; i++) {
-        await sleep(600);
-        intro.textContent += ".";
+      const base = "Wake up";
+      wakeEl.textContent = base;
+      await wait(400);
+
+      for (let i = 1; i <= 3; i++) {
+        wakeEl.textContent = base + ".".repeat(i);
+        await wait(450);
       }
+
+      cursor.style.display = "inline-block";
+      input.focus();
     }
 
-    function sleep(ms) {
-      return new Promise(r => setTimeout(r, ms));
-    }
-
-    // ─────────────────────
-    // INPUT + WS
-    // ─────────────────────
-    const ws = new WebSocket(
-      location.protocol === "https:"
-        ? `wss://${location.host}`
-        : `ws://${location.host}`
-    );
-
-    input.focus();
-    document.body.addEventListener("click", () => input.focus());
-
+    /* ───────── Input handling ───────── */
     input.addEventListener("input", () => {
-      typedText.textContent = input.value;
+      // 영어만 허용
+      input.value = input.value.replace(/[^a-zA-Z0-9 .,!?'-]/g, "");
     });
 
-    input.addEventListener("keydown", e => {
-      if (e.key === "Enter") {
-        const text = input.value.trim();
-        if (!text) return;
-        ws.send(JSON.stringify({ text }));
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && input.value.trim()) {
+        addLog(input.value.trim());
         input.value = "";
-        typedText.textContent = "";
       }
     });
 
-    ws.onmessage = e => {
-      const data = JSON.parse(e.data);
-      addLog(data);
-    };
+    document.addEventListener("click", () => input.focus());
 
-    async function loadLogs() {
-      const res = await fetch("/api/messages");
-      const data = await res.json();
-      data.reverse().forEach(addLog);
+    /* ───────── Logs ───────── */
+    function addLog(text) {
+      const time = new Date().toLocaleString("en-US", {
+        hour12: true
+      });
+
+      const line = document.createElement("div");
+      line.className = "log-line";
+      line.textContent = `${time} SOUTH KOREA ${text}`;
+
+      logWrapper.prepend(line);
+
+      if (logWrapper.children.length > 40) {
+        logWrapper.removeChild(logWrapper.lastChild);
+      }
     }
 
-    function addLog({ text, created_at, country }) {
-      const d = new Date(created_at);
-      const time = d.toLocaleString();
-
-      const el = document.createElement("div");
-      el.className = "log";
-      el.textContent = `${time} ${country || ""} ${text}`;
-
-      logsEl.prepend(el);
+    function wait(ms) {
+      return new Promise(res => setTimeout(res, ms));
     }
 
-    // INIT
-    typeIntro().then(loadLogs);
+    typeWakeUp();
   </script>
 </body>
 </html>
