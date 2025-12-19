@@ -75,7 +75,7 @@ wss.on("connection", (ws, req) => {
     const text = data.text.trim();
     if (!text) return;
 
-    // 국가 조회 (native fetch)
+    //  (native fetch)
     let country = "UNKNOWN";
     try {
       const r = await fetch(`https://ipapi.co/${ip}/json/`);
