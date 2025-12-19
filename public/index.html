@@ -2,198 +2,160 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Communal Log</title>
+<title>Communal Listening</title>
 <style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: #000;
-    color: #ff0000;
-    font-family: "Courier New", Courier, monospace;
-    font-size: 13px;
-    overflow: hidden;
-  }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: black;
+  color: red;
+  font-family: "Courier New", monospace;
+  overflow: hidden;
+}
 
-  #wrap {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-    padding: 40px;
-    box-sizing: border-box;
-  }
+#container {
+  padding: 40px;
+}
 
-  #intro {
-    text-align: center;
-    margin-top: 60px;
-    line-height: 1.6;
-    white-space: pre;
-  }
+#intro {
+  text-align: center;
+  margin-top: 80px;
+  white-space: pre;
+}
 
-  #log-area {
-    position: absolute;
-    top: 180px;
-    left: 40px;
-    right: 40px;
-    bottom: 80px;
-    overflow: hidden;
-  }
+#input-line {
+  display: none;
+  margin: 40px auto;
+  width: 60%;
+  border-bottom: 1px solid red;
+  padding-bottom: 5px;
+}
 
-  .log-line {
-    opacity: 0;
-    transform: translateY(-6px);
-    animation: drop 0.25s ease forwards;
-    white-space: nowrap;
-  }
+#input {
+  background: none;
+  border: none;
+  outline: none;
+  color: red;
+  font-family: inherit;
+  font-size: 16px;
+  width: 100%;
+}
 
-  @keyframes drop {
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
+#logs {
+  margin-top: 40px;
+}
 
-  #input-line {
-    position: absolute;
-    bottom: 40px;
-    left: 40px;
-    color: #ff0000;
-    white-space: nowrap;
-  }
+.log {
+  opacity: 0;
+  transform: translateY(-10px);
+  animation: drop 0.15s ease forwards;
+}
 
-  #cursor {
-    display: inline-block;
-    width: 8px;
-    margin-left: 2px;
-    animation: blink 1s steps(1) infinite;
+@keyframes drop {
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
+}
 
-  @keyframes blink {
-    50% { opacity: 0; }
-  }
+.cursor {
+  display: inline-block;
+  width: 10px;
+  animation: blink 1s steps(2) infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
 </style>
 </head>
 <body>
-<div id="wrap">
-
+<div id="container">
   <div id="intro"></div>
 
-  <div id="log-area"></div>
-
-  <div id="input-line" style="display:none;">
-    <span id="input-text"></span><span id="cursor">▌</span>
+  <div id="input-line">
+    <input id="input" autocomplete="off" />
+    <span class="cursor">|</span>
   </div>
 
+  <div id="logs"></div>
 </div>
 
 <script>
-const introLines = [
-  "Wake up... You are inside the system.",
-  "KNOK, KNOK, KNOK,"
+const introText = [
+  "Wake up . . . You are inside the system.",
+  "",
+  "KNOK, KNOK, KNOK"
 ];
 
 const introEl = document.getElementById("intro");
-const logArea = document.getElementById("log-area");
 const inputLine = document.getElementById("input-line");
-const inputText = document.getElementById("input-text");
+const input = document.getElementById("input");
+const logsEl = document.getElementById("logs");
 
-let introIndex = 0;
-let charIndex = 0;
+let line = 0;
+let char = 0;
 
-// ─────────────────────────────
-// 타이핑 인트로
-// ─────────────────────────────
 function typeIntro() {
-  if (introIndex >= introLines.length) {
-    introEl.innerHTML += "\n\n";
-    startLogs();
+  if (line >= introText.length) {
+    inputLine.style.display = "block";
+    input.focus();
+    loadLogs();
     return;
   }
 
-  const line = introLines[introIndex];
-  if (charIndex < line.length) {
-    introEl.innerHTML += line[charIndex];
-    charIndex++;
+  if (char < introText[line].length) {
+    introEl.textContent += introText[line][char++];
     setTimeout(typeIntro, 40);
   } else {
-    introEl.innerHTML += "\n";
-    introIndex++;
-    charIndex = 0;
+    introEl.textContent += "\n";
+    line++;
+    char = 0;
     setTimeout(typeIntro, 300);
   }
 }
 
 typeIntro();
 
-// ─────────────────────────────
-// 로그 렌더
-// ─────────────────────────────
-function renderLog(text, time, country, instant = false) {
-  const line = document.createElement("div");
-  line.className = "log-line";
-  line.textContent = `${time}  ${country}  ${text}`;
-  if (instant) line.style.animationDelay = "0s";
-  logArea.prepend(line);
+/* ─────────────────────────────
+   Logs
+───────────────────────────── */
+function addLog(log) {
+  const el = document.createElement("div");
+  el.className = "log";
+  const time = new Date(log.created_at).toLocaleString();
+  el.textContent = `${time} ${log.country} ${log.text}`;
+  logsEl.prepend(el);
 }
 
-// ─────────────────────────────
-// 초기 로그 로드 (한 줄씩 떨어짐)
-// ─────────────────────────────
-async function startLogs() {
-  inputLine.style.display = "block";
-
+async function loadLogs() {
   const res = await fetch("/api/messages");
-  const logs = await res.json();
-
-  let delay = 0;
-  logs.reverse().forEach(log => {
-    setTimeout(() => {
-      renderLog(
-        log.text,
-        new Date(log.created_at).toLocaleString("en-US"),
-        log.country || "UNKNOWN"
-      );
-    }, delay);
-    delay += 60;
-  });
-
-  connectWS();
-}
-
-// ─────────────────────────────
-// WebSocket
-// ─────────────────────────────
-function connectWS() {
-  const ws = new WebSocket(
-    (location.protocol === "https:" ? "wss://" : "ws://") + location.host
-  );
-
-  ws.onmessage = (e) => {
-    const data = JSON.parse(e.data);
-    renderLog(
-      data.text,
-      new Date(data.created_at).toLocaleString("en-US"),
-      data.country || "UNKNOWN"
-    );
-  };
-
-  // 입력
-  let buffer = "";
-  document.addEventListener("keydown", e => {
-    if (e.key === "Enter") {
-      if (buffer.trim()) {
-        ws.send(JSON.stringify({ text: buffer }));
-        buffer = "";
-        inputText.textContent = "";
-      }
-    } else if (e.key === "Backspace") {
-      buffer = buffer.slice(0, -1);
-      inputText.textContent = buffer;
-    } else if (e.key.length === 1) {
-      buffer += e.key;
-      inputText.textContent = buffer;
-    }
+  const data = await res.json();
+  data.reverse().forEach((log, i) => {
+    setTimeout(() => addLog(log), i * 30);
   });
 }
+
+/* ─────────────────────────────
+   WebSocket
+───────────────────────────── */
+const ws = new WebSocket(
+  (location.protocol === "https:" ? "wss://" : "ws://") +
+  location.host
+);
+
+ws.onmessage = (e) => {
+  addLog(JSON.parse(e.data));
+};
+
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    const text = input.value.trim();
+    if (!text) return;
+    ws.send(JSON.stringify({ text }));
+    input.value = "";
+  }
+});
 </script>
 </body>
 </html>
