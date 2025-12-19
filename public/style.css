@@ -1,62 +1,62 @@
 :root{
   --bg:#000;
   --fg:#ff2a2a;
-  --muted:#ff2a2a;
 }
 
 *{ box-sizing:border-box; }
-
 html,body{
   height:100%;
   margin:0;
   background:var(--bg);
   color:var(--fg);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation 
-Mono", "Courier New", monospace;
+Mono","Courier New", monospace;
 }
 
 #term{
   height:100%;
   width:100%;
-  position:relative;
-  overflow:hidden;
 }
 
 #logList{
-  position:absolute;
-  top:0;
-  left:0;
-  right:0;
-  bottom:56px;
-  padding:18px 18px 12px 18px;
+  height:100%;
+  padding:18px;
   overflow:auto;
   white-space:pre;
   font-size:14px;
   line-height:1.35;
 }
 
-.line{ color:var(--fg); }
-.line.err{ opacity:0.95; }
-.line.hint{ opacity:0.95; }
 
-#inputBar{
-  position:absolute;
-  left:18px;
-  bottom:18px;
-  width:min(420px, calc(100% - 36px));
+#promptLine{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  margin-bottom:10px;
 }
+
+#promptPrefix{
+  display:inline-block;
+  min-width:260px;
+  border-bottom:1px solid var(--fg);
+  height:1em;
+}
+
 
 #logInput{
-  width:100%;
-  height:28px;
-  padding:6px 8px;
-  border:1px solid #cfcfcf;
+  width:260px;                 
+  background:transparent;
+  border:0;
   outline:none;
-  background:#fff;
-  color:#000;
-  font-size:13px;
-  font-family: inherit;
+  color:var(--fg);
+  font:inherit;
+  padding:0;
+  margin:0;
+  caret-color:var(--fg);
 }
 
-#logList::-webkit-scrollbar{ width:0; height:0; }
+
+#lines .line{
+  color:var(--fg);
+}
 
