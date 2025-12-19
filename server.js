@@ -1,137 +1,107 @@
 import express from "express";
 import { WebSocketServer } from "ws";
-import Database from "better-sqlite3";
-import crypto from "crypto";
-
+import pkg from "pg";
 import path from "path";
 import { fileURLToPath } from "url";
+
+const { Pool } = pkg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const PORT = process.env.PORT || 3000;
 
+/* ─────────────────────────────
+   PostgreSQL
+───────────────────────────── */
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false,
+});
 
-const PORT = process.env.PORT || 8080;
-const MAX_LEN = 140;
-const RATE_MS = 4000;
+// 테이블 초기화 (최초 1회 자동 실행)
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS logs (
+      id SERIAL PRIMARY KEY,
+      text TEXT NOT NULL,
+      created_at BIGINT NOT NULL
+    )
+  `);
+}
+initDB();
 
-// DB
-const db = new Database("./data.db");
-db.exec(`
-  CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ts INTEGER NOT NULL,
-    text TEXT NOT NULL,
-    ip_hash TEXT
-  );
-`);
-
+/* ─────────────────────────────
+   Express
+───────────────────────────── */
 const app = express();
+app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-
-  if (origin) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-  } else {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+// 기존 로그 불러오기
+app.get("/api/messages", async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT text, created_at FROM logs ORDER BY created_at ASC LIMIT 500"
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json([]);
   }
-
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
 });
-
-app.use(express.json({ limit: "20kb" }));
-
-// 초기 로그 API
-app.get("/api/messages", (req, res) => {
-  const rows = db
-    .prepare("SELECT id, ts, text FROM messages ORDER BY ts DESC LIMIT 200")
-    .all();
-  res.json(rows.reverse());
-});
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
 
 // 헬스체크
 app.get("/health", (_, res) => res.send("ok"));
 
-// HTTP 서버 시작
 const server = app.listen(PORT, () => {
-  console.log("Listening :" + PORT);
+  console.log("Server running on", PORT);
 });
 
-// WebSocket 서버
-const wss = new WebSocketServer({ server, path: "/ws" });
-const lastPostByIp = new Map();
+/* ─────────────────────────────
+   WebSocket
+───────────────────────────── */
+const wss = new WebSocketServer({ server });
 
-function sanitizeText(input) {
-  const s = String(input ?? "").trim();
-  if (!s) return null;
-  return s.length > MAX_LEN ? s.slice(0, MAX_LEN) : s;
-}
-
-function ipHash(req) {
-  const ip =
-    req.headers["x-forwarded-for"]?.split(",")[0] ||
-    req.socket.remoteAddress ||
-    "";
-  return crypto
-    .createHash("sha256")
-    .update(ip)
-    .digest("hex")
-    .slice(0, 16);
-}
-
-
-
-
-
-wss.on("connection", (ws, req) => {
-  const ipH = ipHash(req);
-
-  ws.on("message", (raw) => {
-    let payload;
+wss.on("connection", (ws) => {
+  ws.on("message", async (raw) => {
+    let data;
     try {
-      payload = JSON.parse(raw.toString());
+      data = JSON.parse(raw.toString());
     } catch {
       return;
     }
 
-    if (payload.type !== "post") return;
+    if (!data.text || typeof data.text !== "string") return;
 
-    const text = sanitizeText(payload.text);
+    const text = data.text.trim();
     if (!text) return;
 
-    const now = Date.now();
-    const last = lastPostByIp.get(ipH) || 0;
-    if (now - last < RATE_MS) return;
+    const createdAt = Date.now();
 
-    lastPostByIp.set(ipH, now);
+    try {
+      // DB 저장
+      await pool.query(
+        "INSERT INTO logs (text, created_at) VALUES ($1, $2)",
+        [text, createdAt]
+      );
 
-    const info = db
-      .prepare("INSERT INTO messages (ts, text, ip_hash) VALUES (?, ?, ?)")
-      .run(now, text, ipH);
+      const payload = JSON.stringify({
+        text,
+        created_at: createdAt,
+      });
 
-    const msg = {
-      type: "message",
-      id: info.lastInsertRowid,
-      ts: now,
-      text,
-    };
-
-    const data = JSON.stringify(msg);
-    for (const client of wss.clients) {
-      if (client.readyState === 1) client.send(data);
+      // 모든 클라이언트에 브로드캐스트
+      wss.clients.forEach((client) => {
+        if (client.readyState === 1) {
+          client.send(payload);
+        }
+      });
+    } catch (err) {
+      console.error(err);
     }
   });
 });
