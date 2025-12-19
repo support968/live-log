@@ -1,85 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Live Log</title>
+<meta charset="UTF-8" />
+<title>Live Log</title>
 
-  <!-- IBM Plex Mono -->
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&display=swap" 
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&display=swap" 
 rel="stylesheet">
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+<style>
+  body {
+    margin: 0;
+    background: black;
+    color: red;
+    font-family: "IBM Plex Mono", monospace;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
 
-    body {
-      margin: 0;
-      background: #000;
-      color: #ff0000;
-      font-family: "IBM Plex Mono", monospace;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
+  .wrap {
+    text-align: center;
+    width: 600px;
+  }
 
-    .container {
-      text-align: center;
-      width: 100%;
-      max-width: 720px;
-    }
+  .wake {
+    font-size: 14px;
+    min-height: 18px;
+    margin-bottom: 14px;
+  }
 
-    .wake {
-      font-size: 14px;
-      min-height: 18px;
-      margin-bottom: 12px;
-    }
+  .cursor-line {
+    height: 18px;
+    margin-bottom: 18px;
+    display: none;
+  }
 
-    .input-line {
-      height: 18px;
-      margin-bottom: 16px;
-      display: none;
-    }
+  .cursor {
+    display: inline-block;
+    width: 5px; /* 30% thinner */
+    height: 14px;
+    background: red;
+    animation: blink 1s step-start infinite;
+  }
 
-    .cursor {
-      display: inline-block;
-      width: 5px;               /* 30% thinner */
-      height: 14px;
-      background: #ff0000;
-      animation: blink 1s step-start infinite;
-      vertical-align: baseline;
-    }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
 
-    @keyframes blink {
-      50% { opacity: 0; }
-    }
+  .logs {
+    font-size: 12px;
+    line-height: 1.6;
+    letter-spacing: 0.02em;
+  }
 
-    .logs {
-      font-size: 12px;
-      line-height: 1.6;         /* 레퍼런스에 맞춘 행간 */
-      letter-spacing: 0.02em;
-      text-align: center;
-    }
+  .log {
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: all 0.4s ease;
+  }
 
-    .log-line {
-      opacity: 0;
-      transform: translateY(-6px);
-      transition: opacity 0.4s ease, transform 0.4s ease;
-    }
-
-    .log-line.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  </style>
+  .log.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
 </head>
-<body>
 
-<div class="container">
+<body>
+<div class="wrap">
   <div id="wake" class="wake"></div>
 
-  <div id="inputLine" class="input-line">
+  <div id="cursorLine" class="cursor-line">
     <span class="cursor"></span>
   </div>
 
@@ -87,86 +79,65 @@ rel="stylesheet">
 </div>
 
 <script>
-  const wakeEl = document.getElementById("wake");
-  const inputLine = document.getElementById("inputLine");
-  const logsEl = document.getElementById("logs");
+const wakeEl = document.getElementById("wake");
+const cursorLine = document.getElementById("cursorLine");
+const logsEl = document.getElementById("logs");
 
-  /* 1️⃣ Wake up 타이핑 */
-  function typeWakeUp() {
-    return new Promise(resolve => {
-      const text = "Wake up";
-      let i = 0;
-      wakeEl.textContent = "";
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-      function typeChar() {
-        if (i < text.length) {
-          wakeEl.textContent += text[i];
-          i++;
-          setTimeout(typeChar, 120);
-        } else {
-          typeDots(resolve);
-        }
-      }
+/* 1. Wake up 타이핑 */
+async function typeWakeUp() {
+  const text = "Wake up";
+  wakeEl.innerHTML = "";
 
-      requestAnimationFrame(typeChar);
+  for (let i = 0; i < text.length; i++) {
+    wakeEl.innerHTML += text[i];
+    await sleep(120);
+  }
+
+  for (let i = 0; i < 3; i++) {
+    await sleep(400);
+    wakeEl.innerHTML += ".";
+  }
+}
+
+/* 2. 커서 표시 */
+function showCursor() {
+  cursorLine.style.display = "block";
+}
+
+/* 3. 로그 한 줄씩 출력 */
+async function showLogs() {
+  const res = await fetch("/api/messages");
+  const data = await res.json();
+
+  data.reverse();
+
+  for (const item of data) {
+    const time = new Date(item.created_at).toLocaleString("en-US", {
+      hour12: true
     });
+
+    const div = document.createElement("div");
+    div.className = "log";
+    div.textContent = `${time} SOUTH KOREA ${item.text}`;
+
+    logsEl.appendChild(div);
+    requestAnimationFrame(() => div.classList.add("show"));
+
+    await sleep(120);
   }
+}
 
-  function typeDots(done) {
-    let dots = 0;
-
-    function addDot() {
-      if (dots < 3) {
-        wakeEl.textContent += ".";
-        dots++;
-        setTimeout(addDot, 400);
-      } else {
-        done();
-      }
-    }
-
-    setTimeout(addDot, 400);
-  }
-
-  /* 2️⃣ 커서 표시 */
-  function showCursor() {
-    inputLine.style.display = "block";
-  }
-
-  /* 3️⃣ 로그 한 줄씩 출력 */
-  async function loadLogs() {
-    const res = await fetch("/api/messages");
-    const logs = await res.json();
-
-    // 최신 로그가 위로
-    logs.reverse();
-
-    for (const log of logs) {
-      const div = document.createElement("div");
-      div.className = "log-line";
-      div.textContent = `${log.time} ${log.country} ${log.text}`;
-      logsEl.appendChild(div);
-
-      // 프레임 보장 후 등장
-      requestAnimationFrame(() => {
-        div.classList.add("show");
-      });
-
-      await new Promise(r => setTimeout(r, 120));
-    }
-  }
-
-  /* 전체 시퀀스 */
-  async function startSequence() {
-    await typeWakeUp();
-    showCursor();
-    await new Promise(r => setTimeout(r, 600));
-    await loadLogs();
-  }
-
-  startSequence();
+/* 전체 시퀀스 */
+(async function start() {
+  await typeWakeUp();
+  await sleep(300);
+  showCursor();
+  await sleep(600);
+  await showLogs();
+})();
 </script>
-
 </body>
 </html>
 
