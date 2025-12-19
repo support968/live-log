@@ -1,226 +1,160 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Live Log</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8" />
+<title>Live Log</title>
 
-  <!-- Font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:400&display=swap" 
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&display=swap" 
 rel="stylesheet">
 
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #000;
-      color: #ff2a2a;
-      font-family: "IBM Plex Mono", monospace;
-      height: 100%;
-      overflow: hidden;
-    }
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: black;
+    color: #ff0000;
+    font-family: 'IBM Plex Mono', monospace;
+    height: 100%;
+  }
 
-    body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
 
-    #container {
-      text-align: center;
-      width: 100%;
-    }
+  .container {
+    text-align: center;
+    width: 100%;
+  }
 
-    /* ─── Wake text ─── */
-    #wake {
-      font-size: 13px;
-      letter-spacing: 0.04em;
-      margin-bottom: 18px;
-      min-height: 18px;
-    }
+  .wake {
+    font-size: 14px;
+    margin-bottom: 18px;
+    min-height: 20px;
+  }
 
-    /* ─── Input line ─── */
-    #input-line {
-      display: inline-flex;
-      align-items: center;
-      height: 18px;
-      margin-bottom: 28px;
-    }
+  .cursor {
+    width: 6px; /* 기존보다 얇게 */
+    height: 16px;
+    background: #ff0000;
+    margin: 0 auto 20px;
+    animation: blink 1s steps(1) infinite;
+    visibility: hidden;
+  }
 
-    #typed {
-      font-size: 13px;
-      letter-spacing: 0.04em;
-    }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
 
-    #cursor {
-      display: inline-block;
-      width: 4px;      /* 30% thinner */
-      height: 14px;
-      background: #ff2a2a;
-      margin-left: 2px;
-      animation: blink 1s steps(1) infinite;
-    }
+  .logs {
+    font-size: 13px;
+    line-height: 1.55;
+    letter-spacing: 0.02em;
+  }
 
-    @keyframes blink {
-      50% { opacity: 0; }
-    }
+  .log-line {
+    opacity: 0;
+    animation: fadeIn 0.3s forwards;
+  }
 
-    /* ─── Logs ─── */
-    #log-wrapper {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .log-line {
-      font-size: 12.5px;
-      letter-spacing: 0.03em;
-      line-height: 1.6;
-      opacity: 0;
-      transform: translateY(-8px);
-      animation: dropIn 0.18s ease-out forwards;
-      white-space: nowrap;
-    }
-
-    @keyframes dropIn {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    input {
-      position: absolute;
-      opacity: 0;
-      pointer-events: none;
-    }
-  </style>
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+</style>
 </head>
 
 <body>
-  <div id="container">
-    <div id="wake"></div>
-
-    <div id="input-line">
-      <span id="typed"></span>
-      <span id="cursor"></span>
-    </div>
-
-    <div id="log-wrapper"></div>
+  <div class="container">
+    <div class="wake" id="wake"></div>
+    <div class="cursor" id="cursor"></div>
+    <div class="logs" id="logs"></div>
   </div>
 
-  <input id="hidden-input" autocomplete="off" />
+<script>
+const wakeEl = document.getElementById('wake');
+const cursorEl = document.getElementById('cursor');
+const logsEl = document.getElementById('logs');
 
-  <script>
-    const wakeEl = document.getElementById("wake");
-    const cursor = document.getElementById("cursor");
-    const typedEl = document.getElementById("typed");
-    const logWrapper = document.getElementById("log-wrapper");
-    const input = document.getElementById("hidden-input");
+/* -----------------------------
+   1. Wake up 타이핑
+----------------------------- */
+function typeWakeUp() {
+  return new Promise(resolve => {
+    const text = "Wake up";
+    let i = 0;
 
-    cursor.style.display = "none";
-
-    /* ───────── Wake up typing ───────── */
-    async function typeWakeUp() {
-      wakeEl.textContent = "";
-      await wait(300);
-
-      const base = "Wake up";
-      wakeEl.textContent = base;
-      await wait(400);
-
-      for (let i = 1; i <= 3; i++) {
-        wakeEl.textContent = base + ".".repeat(i);
-        await wait(450);
+    const interval = setInterval(() => {
+      wakeEl.textContent += text[i];
+      i++;
+      if (i === text.length) {
+        clearInterval(interval);
+        typeDots(resolve);
       }
+    }, 120);
+  });
+}
 
-      cursor.style.display = "inline-block";
-      input.focus();
+/* -----------------------------
+   1-1. ... 천천히
+----------------------------- */
+function typeDots(done) {
+  let dots = 0;
+  const dotInterval = setInterval(() => {
+    wakeEl.textContent += ".";
+    dots++;
+    if (dots === 3) {
+      clearInterval(dotInterval);
+      done();
     }
+  }, 400);
+}
 
-    /* ───────── Load existing logs ───────── */
-async function loadLogs() {
-  try {
-    const res = await fetch("/api/messages");
-    const logs = await res.json();
+/* -----------------------------
+   2. 커서 등장
+----------------------------- */
+function showCursor() {
+  return new Promise(resolve => {
+    cursorEl.style.visibility = 'visible';
+    setTimeout(resolve, 1000);
+  });
+}
 
-    // 오래된 로그부터 → 최신 순
-    const ordered = logs.slice().reverse();
+/* -----------------------------
+   3. 로그 한 줄씩 출력
+----------------------------- */
+async function showLogs() {
+  const res = await fetch('/api/messages');
+  const data = await res.json();
 
-    for (let i = 0; i < ordered.length; i++) {
-      const log = ordered[i];
-      await wait(120); // ⬅ 줄 간 딜레이 (레퍼런스 느낌)
-      renderLog(log.text, log.created_at, true);
-    }
-  } catch (e) {
-    console.error("Failed to load logs");
+  for (const row of data) {
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    div.textContent =
+      new Date(row.created_at).toLocaleString('en-US') +
+      ' ' +
+      row.country.toUpperCase() +
+      ' ' +
+      row.text;
+
+    logsEl.appendChild(div);
+    await wait(180);
   }
 }
 
+function wait(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
 
-
-
-
-
-    /* ───────── Input handling ───────── */
-    input.addEventListener("input", () => {
-      input.value = input.value.replace(/[^a-zA-Z0-9 .,!?'-]/g, "");
-      typedEl.textContent = input.value;
-    });
-
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && input.value.trim()) {
-        sendLog(input.value.trim());
-        input.value = "";
-        typedEl.textContent = "";
-      }
-    });
-
-    document.addEventListener("click", () => input.focus());
-
-    /* ───────── Send log ───────── */
-    function sendLog(text) {
-      renderLog(text, Date.now(), true);
-
-      fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text })
-      });
-    }
-
-    /* ───────── Render log ───────── */
-    function renderLog(text, timestamp, animate = true) {
-      const time = new Date(timestamp).toLocaleString("en-US", {
-        hour12: true
-      });
-
-      const line = document.createElement("div");
-      line.className = "log-line";
-      line.textContent = `${time} SOUTH KOREA ${text}`;
-
-      if (!animate) {
-        line.style.opacity = 1;
-        line.style.transform = "none";
-      }
-
-      logWrapper.prepend(line);
-
-      if (logWrapper.children.length > 40) {
-        logWrapper.removeChild(logWrapper.lastChild);
-      }
-    }
-
-    function wait(ms) {
-      return new Promise(res => setTimeout(res, ms));
-    }
-
-    typeWakeUp();
-    loadLogs();
-  </script>
+/* -----------------------------
+   실행 순서 고정
+----------------------------- */
+(async function start() {
+  await typeWakeUp();   // 1
+  await showCursor();   // 2
+  await showLogs();     // 3
+})();
+</script>
 </body>
 </html>
 
