@@ -219,7 +219,64 @@ async function loadInitialLogs() {
   }
 }
 
-let ws;
+const countryNames = {
+    'KR': 'South Korea',
+    'US': 'United States',
+    'JP': 'Japan',
+    'CN': 'China',
+    'GB': 'United Kingdom',
+    'DE': 'Germany',
+    'FR': 'France',
+    'CA': 'Canada',
+    'AU': 'Australia',
+    'IT': 'Italy',
+    'ES': 'Spain',
+    'BR': 'Brazil',
+    'MX': 'Mexico',
+    'IN': 'India',
+    'RU': 'Russia',
+    'NL': 'Netherlands',
+    'SE': 'Sweden',
+    'CH': 'Switzerland',
+    'SG': 'Singapore',
+    'TH': 'Thailand',
+    'VN': 'Vietnam',
+    'PH': 'Philippines',
+    'ID': 'Indonesia',
+    'MY': 'Malaysia',
+    'TW': 'Taiwan',
+    'HK': 'Hong Kong',
+    'NZ': 'New Zealand',
+    'AR': 'Argentina',
+    'CL': 'Chile',
+    'CO': 'Colombia',
+    'PE': 'Peru',
+    'ZA': 'South Africa',
+    'EG': 'Egypt',
+    'SA': 'Saudi Arabia',
+    'AE': 'UAE',
+    'TR': 'Turkey',
+    'PL': 'Poland',
+    'PT': 'Portugal',
+    'BE': 'Belgium',
+    'AT': 'Austria',
+    'NO': 'Norway',
+    'DK': 'Denmark',
+    'FI': 'Finland',
+    'IE': 'Ireland',
+    'CZ': 'Czech Republic',
+    'GR': 'Greece',
+    'IL': 'Israel'
+  };
+  
+  const countryName = countryNames[country] || country;
+
+  const line = document.createElement("div");
+  line.className = "log";
+  line.textContent = `${timestamp} ${countryName} ${text}`;
+  
+  logWrapper.insertBefore(line, logWrapper.firstChild);
+}let ws;
      
 function connectWS() {
   ws = new WebSocket(
