@@ -152,9 +152,19 @@ function enableTyping() {
 
 function renderLog({ created_at, country, text }, prepend = false) {
   const d = new Date(created_at);
+  
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+  
+  const timestamp = `${month}/${day}/${year}, ${hours}:${minutes}:${seconds}`;
+  
   const line = document.createElement("div");
   line.className = "log";
-  line.textContent = `${d.toLocaleString("en-US")} ${country} ${text}`;
+  line.textContent = `${timestamp} ${country} ${text}`;
     
   if (prepend) {
     logWrapper.prepend(line);
@@ -162,6 +172,7 @@ function renderLog({ created_at, country, text }, prepend = false) {
     logWrapper.appendChild(line);
   }
 }
+
 
 async function loadInitialLogs() {
   const res = await fetch("/api/messages");
@@ -172,7 +183,7 @@ async function loadInitialLogs() {
   for (let i = 0; i < sorted.length; i++) {
     setTimeout(() => {
       renderLog(sorted[i], false);
-    }, i * 150);
+    }, i * 80);
   }
 }
 
