@@ -20,17 +20,25 @@ html, body {
 }
 
 #screen {
-  height: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  padding-top: 40vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#screen::-webkit-scrollbar {
+  display: none;
 }
 
 #header {
   flex-shrink: 0;
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 9px;
 }
 
 #wakeup {
@@ -62,19 +70,11 @@ html, body {
 }
 
 #logWrapper {
-  margin-top: 20px;
-  max-height: 40vh;
-  overflow-y: auto;
-  overflow-x: hidden;
+  margin-top: 9px;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  padding: 0 20px;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-}
-
-#logWrapper::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  padding: 0 20px 100px 20px;
 }
 
 .log {
@@ -170,7 +170,6 @@ function enableTyping() {
       return;
     }
 
-    // 모든 출력 가능한 문자 허용 (한글, 일본어, 중국어 등)
     if (e.key.length === 1) {
       buffer += e.key;
       typedTextEl.textContent = buffer;
