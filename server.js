@@ -1,65 +1,74 @@
 const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
 const cors = require('cors');
-const fs = require('fs').promises;
-const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
 
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
 const PORT = process.env.PORT || 3000;
+const DB_FILE = path.join(__dirname, 'data.db');
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-const DB_FILE = path.join(__dirname, 'data.db');
-
-
 const db = new sqlite3.Database(DB_FILE);
 
 db.serialize(() => {
   db.run(`
-    CREATE TABLE IF NOT EXISTS logs (
+    CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      timestamp TEXT NOT NULL,
       country TEXT NOT NULL,
       text TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at INTEGER NOT NULL
     )
   `);
 });
 
-
-app.get('/api/logs', (req, res) => {
-  db.all('SELECT * FROM logs ORDER BY id ASC', [], (err, rows) => {
+app.get('/api/messages', (req, res) => {
+  db.all('SELECT * FROM messages ORDER BY created_at ASC', [], (err, rows) => {
     if (err) {
-      return res.status(500).json({ error: 'Failed to read logs' });
+      return res.status(500).json({ error: 'Failed to read messages' });
     }
     res.json(rows);
   });
 });
 
+app.post('/api/messages', (req, res) => {
+  const { text } = req.body;
+  const country = 'KR';
+  const created_at = Date.now();
 
-app.post('/api/logs', (req, res) => {
-  const { timestamp, country, text } = req.body;
-  
   db.run(
-    'INSERT INTO logs (timestamp, country, text) VALUES (?, ?, ?)',
-    [timestamp, country, text],
+    'INSERT INTO messages (country, text, created_at) VALUES (?, ?, ?)',
+    [country, text, created_at],
     function(err) {
       if (err) {
-        return res.status(500).json({ error: 'Failed to save log' });
+        return res.status(500).json({ error: 'Failed to save message' });
       }
-      
-      db.get('SELECT * FROM logs WHERE id = ?', [this.lastID], (err, row) => {
-        if (err) {
-          return res.status(500).json({ error: 'Failed to retrieve log' });
+
+      const newMessage = {
+        id: this.lastID,
+        country,
+        text,
+        created_at
+      };
+
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(newMessage));
         }
-        res.json(row);
       });
+
+      res.json(newMessage);
     }
   );
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
