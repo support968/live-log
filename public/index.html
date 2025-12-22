@@ -69,18 +69,12 @@ html, body {
   display: flex;
   flex-direction: column;
   padding: 0 20px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
 }
 
 #logWrapper::-webkit-scrollbar {
-  width: 6px;
-}
-
-#logWrapper::-webkit-scrollbar-track {
-  background: #000;
-}
-
-#logWrapper::-webkit-scrollbar-thumb {
-  background: #330000;
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .log {
