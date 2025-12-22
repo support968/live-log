@@ -167,10 +167,17 @@ async function loadInitialLogs() {
   const res = await fetch("/api/messages");
   const data = await res.json();
     
-  data
-    .sort((a, b) => b.created_at - a.created_at)
-    .forEach(item => renderLog(item, false));
+  const sorted = data.sort((a, b) => b.created_at - a.created_at);
+  
+  for (let i = 0; i < sorted.length; i++) {
+    setTimeout(() => {
+      renderLog(sorted[i], false);
+    }, i * 150);
+  }
 }
+
+
+
       
 let ws;
       
