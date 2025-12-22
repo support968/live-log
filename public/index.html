@@ -207,7 +207,7 @@ function enableTyping() {
   });
 }
   
-function renderLog({ created_at, country, text }) {
+function renderLog({ created_at, country, text }, isNew = false) {
   const d = new Date(created_at);
       
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -275,7 +275,11 @@ function renderLog({ created_at, country, text }) {
   line.className = "log";
   line.textContent = `${timestamp} ${countryName} ${text}`;
     
-  logWrapper.prepend(line);
+  if (isNew) {
+    logWrapper.prepend(line);
+  } else {
+    logWrapper.appendChild(line);
+  }
 }
 
 async function loadInitialLogs() {
@@ -368,7 +372,7 @@ function connectWS() {
     const timeDiff = Date.now() - lastSentTime;
     
     if (timeDiff > 1000) {
-      renderLog(data);
+      renderLog(data, true);
     }
   };
 }
@@ -383,7 +387,7 @@ async function sendLog(text) {
   });
     
   const newMessage = await res.json();
-  renderLog(newMessage);
+  renderLog(newMessage, true);
     
   setTimeout(() => {
     isTyping = false;
