@@ -112,17 +112,23 @@ function typeWakeUp() {
 function typeDots(count) {
   if (count < 3) {
     wakeupEl.textContent += ".";
-    setTimeout(() => typeDots(count + 1), 400);
+    setTimeout(() => typeDots(count + 1), 500);
   } else {
     setTimeout(() => {
       inputLine.style.display = "block";
       enableTyping();
       loadInitialLogs();
       connectWS();
+connectWS();
+      
+      // 2초 후에 로그 로드
+      setTimeout(() => {
+        loadInitialLogs();
+      }, 2000);  // ← 여기! 2000 = 2초
+      
     }, 500);
   }
 }
-
 typeWakeUp();
  
 let buffer = "";
