@@ -38,9 +38,25 @@ app.get('/api/messages', (req, res) => {
   });
 });
 
-app.post('/api/messages', (req, res) => {
+app.post('/api/messages', async (req, res) => {
   const { text } = req.body;
-  const country = 'KR';
+  
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || 
+             req.connection.remoteAddress || 
+             'unknown';
+  
+  let country = 'KR';
+  
+  if (ip !== 'unknown' && !ip.includes('127.0.0.1') && !ip.includes('::1')) {
+    try {
+      const response = await fetch(`https://ipapi.co/${ip}/json/`);
+      const data = await response.json();
+      country = data.country_code || 'KR';
+    } catch (error) {
+      console.log('Country detection failed:', error);
+    }
+  }
+  
   const created_at = Date.now();
 
   db.run(
@@ -72,3 +88,4 @@ app.post('/api/messages', (req, res) => {
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
