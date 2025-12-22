@@ -16,6 +16,7 @@ html, body {
   color: #e00000;
   font-family: 'IBM Plex Mono', monospace;
   height: 100%;
+  overflow: hidden;
 }
 
 #screen {
@@ -23,13 +24,18 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  padding: 40px 20px;
+}
+
+#header {
+  flex-shrink: 0;
+  text-align: center;
+  margin-bottom: 20px;
 }
 
 #wakeup {
   font-size: 14px;
-  margin-bottom: 16px;
-  min-height: 20px;
+  margin-bottom: 10px;
 }
 
 #inputLine {
@@ -56,10 +62,26 @@ html, body {
 }
 
 #logWrapper {
-  margin-top: 18px;
+  flex: 1;
+  width: 100%;
+  max-width: 800px;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: column-reverse;
+  padding: 10px;
+}
+
+#logWrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+#logWrapper::-webkit-scrollbar-track {
+  background: #000;
+}
+
+#logWrapper::-webkit-scrollbar-thumb {
+  background: #330000;
 }
 
 .log {
@@ -69,6 +91,8 @@ html, body {
   opacity: 0;  
   transform: translateY(-6px);
   animation: drop 0.35s ease forwards;
+  text-align: center;
+  margin-bottom: 2px;
 }
 
 @keyframes drop {  
@@ -82,10 +106,11 @@ html, body {
   
 <body>
 <div id="screen">
-  <div id="wakeup"></div>
-
-  <div id="inputLine">
-    <span id="typedText"></span><span id="cursor"></span>
+  <div id="header">
+    <div id="wakeup"></div>
+    <div id="inputLine">
+      <span id="typedText"></span><span id="cursor"></span>
+    </div>
   </div>
 
   <div id="logWrapper"></div>
@@ -99,7 +124,7 @@ const logWrapper = document.getElementById("logWrapper");
   
 const wakeupText = "Wake up";
 let i = 0;
-let lastSentId = 0;
+let lastSentTime = 0;
   
 function typeWakeUp() {
   if (i < wakeupText.length) {
@@ -131,11 +156,15 @@ function typeDots(count) {
 typeWakeUp();
   
 let buffer = "";
+let isTyping = false;
    
 function enableTyping() {
   document.addEventListener("keydown", e => {
+    if (isTyping) return;
+    
     if (e.key === "Enter") {
-      if (!buffer.trim()) return; 
+      if (!buffer.trim()) return;
+      isTyping = true;
       sendLog(buffer.trim());
       buffer = "";
       typedTextEl.textContent = "";
@@ -155,7 +184,7 @@ function enableTyping() {
   });
 }
   
-function renderLog({ created_at, country, text }, prepend = false) {
+function renderLog({ created_at, country, text }) {
   const d = new Date(created_at);
       
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -170,12 +199,8 @@ function renderLog({ created_at, country, text }, prepend = false) {
   const line = document.createElement("div");
   line.className = "log";
   line.textContent = `${timestamp} ${country} ${text}`;
-    
-  if (prepend) {
-    logWrapper.prepend(line);
-  } else {
-    logWrapper.appendChild(line);
-  }
+  
+  logWrapper.insertBefore(line, logWrapper.firstChild);
 }
 
 async function loadInitialLogs() {
@@ -186,8 +211,8 @@ async function loadInitialLogs() {
      
   for (let i = 0; i < sorted.length; i++) {
     setTimeout(() => {
-      renderLog(sorted[i], false); 
-    }, i * 50);
+      renderLog(sorted[i]); 
+    }, i * 80);
   }
 }
 
@@ -202,13 +227,17 @@ function connectWS() {
   
   ws.onmessage = e => {
     const data = JSON.parse(e.data);
-    if (data.id !== lastSentId) {
-      renderLog(data, true);
+    const timeDiff = Date.now() - lastSentTime;
+    
+    if (timeDiff > 1000) {
+      renderLog(data);
     }
   };
 }
   
 async function sendLog(text) {
+  lastSentTime = Date.now();
+  
   const res = await fetch("/api/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },   
@@ -216,8 +245,11 @@ async function sendLog(text) {
   });
   
   const newMessage = await res.json();
-  lastSentId = newMessage.id;
-  renderLog(newMessage, true);
+  renderLog(newMessage);
+  
+  setTimeout(() => {
+    isTyping = false;
+  }, 100);
 }
 </script> 
 </body>
