@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LIVE LOG</title>
 
-<!-- IBM Plex Mono -->
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&display=swap"
 rel="stylesheet">
 
@@ -62,16 +62,13 @@ html, body {
 }
 
 #logWrapper {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  margin-top: 20px;
   max-height: 40vh;
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
-  flex-direction: column-reverse;
-  padding: 20px;
+  flex-direction: column;
+  padding: 0 20px;
 }
 
 #logWrapper::-webkit-scrollbar {
@@ -88,13 +85,13 @@ html, body {
 
 .log {
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1.2;
   letter-spacing: 0.02em;
   opacity: 0;  
   transform: translateY(-6px);
   animation: drop 0.35s ease forwards;
   text-align: center;
-  margin-bottom: 2px;
+  margin-bottom: 0;
 }
 
 @keyframes drop {  
@@ -103,7 +100,6 @@ html, body {
     transform: translateY(0);
   }
 }
-
 </style>
 </head>
   
@@ -180,7 +176,8 @@ function enableTyping() {
       return;
     }
 
-    if (/^[a-zA-Z0-9 .,!?'-]$/.test(e.key)) {
+    // 모든 출력 가능한 문자 허용 (한글, 일본어, 중국어 등)
+    if (e.key.length === 1) {
       buffer += e.key;
       typedTextEl.textContent = buffer;
     }  
@@ -198,28 +195,8 @@ function renderLog({ created_at, country, text }) {
   const seconds = String(d.getSeconds()).padStart(2, '0');
  
   const timestamp = `${month}/${day}/${year}, ${hours}:${minutes}:${seconds}`;
-
-  const line = document.createElement("div");
-  line.className = "log";
-  line.textContent = `${timestamp} ${country} ${text}`;
   
-  logWrapper.insertBefore(line, logWrapper.firstChild);
-}
-
-async function loadInitialLogs() {
-  const res = await fetch("/api/messages");
-  const data = await res.json();
-      
-  const sorted = data.sort((a, b) => b.created_at - a.created_at);
-     
-  for (let i = 0; i < sorted.length; i++) {
-    setTimeout(() => {
-      renderLog(sorted[i]); 
-    }, i * 80);
-  }
-}
-
-const countryNames = {
+  const countryNames = {
     'KR': 'South Korea',
     'US': 'United States',
     'JP': 'Japan',
@@ -275,8 +252,23 @@ const countryNames = {
   line.className = "log";
   line.textContent = `${timestamp} ${countryName} ${text}`;
   
-  logWrapper.insertBefore(line, logWrapper.firstChild);
-}let ws;
+  logWrapper.prepend(line);
+}
+
+async function loadInitialLogs() {
+  const res = await fetch("/api/messages");
+  const data = await res.json();
+      
+  const sorted = data.sort((a, b) => b.created_at - a.created_at);
+     
+  for (let i = 0; i < sorted.length; i++) {
+    setTimeout(() => {
+      renderLog(sorted[i]); 
+    }, i * 80);
+  }
+}
+
+let ws;
      
 function connectWS() {
   ws = new WebSocket(
