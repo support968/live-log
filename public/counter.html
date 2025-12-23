@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log Counter</title>
+  <style>
+    @import 
+url('https://fonts.googleapis.com/css2?family=Geist:wght@500&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    
+    .counter {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #ffffff;
+      font-family: 'Geist', sans-serif;
+      font-style: normal;
+      line-height: 1.4;
+      letter-spacing: -0.011em;
+      padding-left: 1.0rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="counter" id="counter">0</div>
+
+  <script>
+    const API_URL = window.location.origin;
+    const WS_URL = API_URL.replace('http', 'ws');
+    
+    const counterEl = document.getElementById('counter');
+    
+    // 초기 카운트 로드
+    async function loadCount() {
+      try {
+        const res = await fetch(`${API_URL}/api/count`);
+        const data = await res.json();
+        counterEl.textContent = data.count;
+      } catch (err) {
+        console.error('Failed to load count:', err);
+      }
+    }
+    
+    // WebSocket 연결
+    function connectWebSocket() {
+      const ws = new WebSocket(WS_URL);
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.count !== undefined) {
+          counterEl.textContent = data.count;
+        }
+      };
+      
+      ws.onclose = () => {
+        setTimeout(connectWebSocket, 2000);
+      };
+    }
+    
+    loadCount();
+    connectWebSocket();
+  </script>
+</body>
+</html>

@@ -371,11 +371,10 @@ function connectWS() {
     const data = JSON.parse(e.data);
     const timeDiff = Date.now() - lastSentTime;
     
-    if (timeDiff > 1000) {
-      renderLog(data, true);
-    }
-  };
-}
+ if (msg.type === 'message' && timeDiff > 1000) {
+    renderLog(msg.data, true);
+  }
+};
     
 async function sendLog(text) {
   lastSentTime = Date.now();

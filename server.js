@@ -29,12 +29,23 @@ db.serialize(() => {
   `);
 });
 
+// 메시지 목록
 app.get('/api/messages', (req, res) => {
   db.all('SELECT * FROM messages ORDER BY created_at ASC', [], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to read messages' });
     }
     res.json(rows);
+  });
+});
+
+// 카운터 API 추가
+app.get('/api/count', (req, res) => {
+  db.get('SELECT COUNT(*) as count FROM messages', [], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to count messages' });
+    }
+    res.json({ count: row.count });
   });
 });
 
@@ -74,10 +85,19 @@ app.post('/api/messages', async (req, res) => {
         created_at
       };
 
-      wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(newMessage));
-        }
+      // 현재 총 카운트 조회 후 브로드캐스트
+      db.get('SELECT COUNT(*) as count FROM messages', [], (err, row) => {
+        const count = row ? row.count : 0;
+        
+        wss.clients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ 
+              type: 'message', 
+              data: newMessage,
+              count: count
+            }));
+          }
+        });
       });
 
       res.json(newMessage);
@@ -88,4 +108,3 @@ app.post('/api/messages', async (req, res) => {
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
