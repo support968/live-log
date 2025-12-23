@@ -29,7 +29,6 @@ db.serialize(() => {
   `);
 });
 
-// 메시지 목록
 app.get('/api/messages', (req, res) => {
   db.all('SELECT * FROM messages ORDER BY created_at ASC', [], (err, rows) => {
     if (err) {
@@ -39,7 +38,6 @@ app.get('/api/messages', (req, res) => {
   });
 });
 
-// 카운터 API 추가
 app.get('/api/count', (req, res) => {
   db.get('SELECT COUNT(*) as count FROM messages', [], (err, row) => {
     if (err) {
@@ -60,9 +58,9 @@ app.post('/api/messages', async (req, res) => {
   
   if (ip !== 'unknown' && !ip.includes('127.0.0.1') && !ip.includes('::1')) {
     try {
-      const response = await fetch(`https://ipapi.co/${ip}/json/`);
+      const response = await fetch(`http://ip-api.com/json/${ip}?fields=countryCode`);
       const data = await response.json();
-      country = data.country_code || 'KR';
+      country = data.countryCode || 'KR';
     } catch (error) {
       console.log('Country detection failed:', error);
     }
@@ -85,7 +83,6 @@ app.post('/api/messages', async (req, res) => {
         created_at
       };
 
-      // 현재 총 카운트 조회 후 브로드캐스트
       db.get('SELECT COUNT(*) as count FROM messages', [], (err, row) => {
         const count = row ? row.count : 0;
         
