@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, 
+user-scalable=no">
 <title>LIVE LOG</title>
 
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&display=swap"
@@ -79,6 +80,20 @@ body {
   animation: blink 1s steps(1) infinite;
 }
 
+#hiddenInput {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  font-size: 16px;
+}
+
 @keyframes blink {
   50% { opacity: 0; }
 }
@@ -106,7 +121,7 @@ body {
   font-size: 13px;
   line-height: 1.2;
   letter-spacing: 0.02em;
-  opacity: 0;  
+  opacity: 0;
   transform: translateY(-6px);
   animation: drop 0.35s ease forwards;
   text-align: center;
@@ -114,27 +129,30 @@ body {
 }
 
 @keyframes drop {
-  to {   
+  to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 </style>
 </head>
- 
+
 <body>
 <script>
 document.documentElement.style.overflow = 'hidden';
 document.body.style.overflow = 'hidden';
 </script>
 
-<div id="screen"> 
-  <div id="header">  
+<div id="screen">
+  <div id="header">
     <div id="wakeup"></div>
     <div id="inputLine">
       <span id="typedText"></span><span id="cursor"></span>
     </div>
   </div>
+  
+  <input type="text" id="hiddenInput" autocomplete="off" autocapitalize="off" autocorrect="off" 
+spellcheck="false">
   
   <div id="logWrapper"></div>
 </div>
@@ -144,20 +162,22 @@ const wakeupEl = document.getElementById("wakeup");
 const inputLine = document.getElementById("inputLine");
 const typedTextEl = document.getElementById("typedText");
 const logWrapper = document.getElementById("logWrapper");
-      
+const hiddenInput = document.getElementById("hiddenInput");
+
 const wakeupText = "Wake up";
 let i = 0;
 let lastSentTime = 0;
-     
+let isTyping = false;
+
 function typeWakeUp() {
-  if (i < wakeupText.length) {  
+  if (i < wakeupText.length) {
     wakeupEl.textContent += wakeupText[i++];
     setTimeout(typeWakeUp, 120);
-  } else {   
+  } else {
     typeDots(0);
   }
 }
-      
+
 function typeDots(count) {
   if (count < 3) {
     wakeupEl.textContent += ".";
@@ -167,63 +187,73 @@ function typeDots(count) {
       inputLine.style.display = "block";
       enableTyping();
       connectWS();
-  
+
       setTimeout(() => {
         loadInitialLogs();
       }, 2000);
-  
+
     }, 500);
   }
 }
-  
+
 typeWakeUp();
-    
-let buffer = "";  
-let isTyping = false;
-    
+
 function enableTyping() {
+  // 화면 터치/클릭하면 input 포커스
+  document.addEventListener("click", () => {
+    hiddenInput.focus();
+  });
+  
+  document.addEventListener("touchstart", () => {
+    hiddenInput.focus();
+  });
+
+  // 모바일: input 이벤트로 텍스트 동기화
+  hiddenInput.addEventListener("input", () => {
+    if (isTyping) return;
+    typedTextEl.textContent = hiddenInput.value;
+  });
+
+  // Enter 키 처리 (모바일 + 데스크탑)
+  hiddenInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (isTyping) return;
+      const text = hiddenInput.value.trim();
+      if (!text) return;
+      isTyping = true;
+      sendLog(text);
+      hiddenInput.value = "";
+      typedTextEl.textContent = "";
+    }
+  });
+
+  // 데스크탑: 키보드 직접 입력도 지원
   document.addEventListener("keydown", e => {
     if (isTyping) return;
-    
-    if (e.key === "Enter") {
-      if (!buffer.trim()) return;
-      isTyping = true;
-      sendLog(buffer.trim());
-      buffer = "";
-      typedTextEl.textContent = "";
-      return;
-    }
-    
-    if (e.key === "Backspace") {
-      buffer = buffer.slice(0, -1);
-      typedTextEl.textContent = buffer;
-      return;
-    }
-   
-    if (e.key.length === 1) {
-      buffer += e.key;
-      typedTextEl.textContent = buffer;
+    if (document.activeElement !== hiddenInput) {
+      hiddenInput.focus();
     }
   });
 }
-  
+
 function renderLog({ created_at, country, text }, isNew = false) {
   const d = new Date(created_at);
-      
+
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   const year = d.getFullYear();
   const hours = String(d.getHours()).padStart(2, '0');
   const minutes = String(d.getMinutes()).padStart(2, '0');
   const seconds = String(d.getSeconds()).padStart(2, '0');
-    
+
   const timestamp = `${month}/${day}/${year}, ${hours}:${minutes}:${seconds}`;
-  
+
   const countryNames = {
     'KR': 'South Korea',
     'US': 'United States',
     'JP': 'Japan',
-    'CN': 'China',   
+    'CN': 'China',
     'GB': 'United Kingdom',
     'DE': 'Germany',
     'FR': 'France',
@@ -231,7 +261,7 @@ function renderLog({ created_at, country, text }, isNew = false) {
     'AU': 'Australia',
     'IT': 'Italy',
     'ES': 'Spain',
-    'BR': 'Brazil',   
+    'BR': 'Brazil',
     'MX': 'Mexico',
     'IN': 'India',
     'RU': 'Russia',
@@ -268,13 +298,13 @@ function renderLog({ created_at, country, text }, isNew = false) {
     'GR': 'Greece',
     'IL': 'Israel'
   };
-    
+
   const countryName = countryNames[country] || country;
-    
+
   const line = document.createElement("div");
   line.className = "log";
   line.textContent = `${timestamp} ${countryName} ${text}`;
-    
+
   if (isNew) {
     logWrapper.prepend(line);
   } else {
@@ -285,9 +315,9 @@ function renderLog({ created_at, country, text }, isNew = false) {
 async function loadInitialLogs() {
   const res = await fetch("/api/messages");
   const data = await res.json();
-    
+
   const sorted = data.sort((a, b) => b.created_at - a.created_at);
-    
+
   for (let i = 0; i < sorted.length; i++) {
     setTimeout(() => {
       const logDiv = document.createElement("div");
@@ -300,7 +330,7 @@ async function loadInitialLogs() {
       const minutes = String(d.getMinutes()).padStart(2, '0');
       const seconds = String(d.getSeconds()).padStart(2, '0');
       const timestamp = `${month}/${day}/${year}, ${hours}:${minutes}:${seconds}`;
-      
+
       const countryNames = {
         'KR': 'South Korea',
         'US': 'United States',
@@ -351,44 +381,48 @@ async function loadInitialLogs() {
         'IL': 'Israel'
       };
       const countryName = countryNames[sorted[i].country] || sorted[i].country;
-      
+
       logDiv.textContent = `${timestamp} ${countryName} ${sorted[i].text}`;
       logWrapper.appendChild(logDiv);
     }, i * 30);
   }
 }
-    
+
 let ws;
-    
+
 function connectWS() {
   ws = new WebSocket(
     location.protocol === "https:"
       ? `wss://${location.host}`
       : `ws://${location.host}`
   );
-    
-ws.onmessage = e => {
-  const msg = JSON.parse(e.data);
-  const timeDiff = Date.now() - lastSentTime;
 
-  if (msg.type === 'message' && timeDiff > 1000) {
-    renderLog(msg.data, true);
-  }
-};
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    const timeDiff = Date.now() - lastSentTime;
+
+    if (msg.type === 'message' && timeDiff > 1000) {
+      renderLog(msg.data, true);
+    }
+  };
+  
+  ws.onclose = () => {
+    setTimeout(connectWS, 2000);
+  };
 }
-    
+
 async function sendLog(text) {
   lastSentTime = Date.now();
-    
+
   const res = await fetch("/api/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text })
   });
-    
+
   const newMessage = await res.json();
   renderLog(newMessage, true);
-    
+
   setTimeout(() => {
     isTyping = false;
   }, 100);
