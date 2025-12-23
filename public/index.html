@@ -286,7 +286,7 @@ async function loadInitialLogs() {
   const res = await fetch("/api/messages");
   const data = await res.json();
     
-  const sorted = data.sort((a, b) => a.created_at - b.created_at);
+  const sorted = data.sort((a, b) => b.created_at - a.created_at);
     
   for (let i = 0; i < sorted.length; i++) {
     setTimeout(() => {
