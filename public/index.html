@@ -199,12 +199,12 @@ function typeDots(count) {
 typeWakeUp();
 
 function enableTyping() {
-  // 화면 터치/클릭하면 input 포커스
-  document.addEventListener("click", () => {
+  // 커서/입력라인 터치할 때만 키보드 올라옴
+  inputLine.addEventListener("click", () => {
     hiddenInput.focus();
   });
   
-  document.addEventListener("touchstart", () => {
+  inputLine.addEventListener("touchstart", () => {
     hiddenInput.focus();
   });
 
@@ -225,13 +225,14 @@ function enableTyping() {
       sendLog(text);
       hiddenInput.value = "";
       typedTextEl.textContent = "";
+      hiddenInput.blur(); // 키보드 숨기기
     }
   });
 
-  // 데스크탑: 키보드 직접 입력도 지원
+  // 데스크탑: 키보드 직접 입력 지원
   document.addEventListener("keydown", e => {
     if (isTyping) return;
-    if (document.activeElement !== hiddenInput) {
+    if (e.key.length === 1 || e.key === "Backspace") {
       hiddenInput.focus();
     }
   });
