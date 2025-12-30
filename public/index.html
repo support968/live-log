@@ -23,7 +23,7 @@ html, body {
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 26px;
   font-weight: 500;
-  line-height: 1.2;
+  line-height: 1.3;
   letter-spacing: -0.01em;
   color: #e00000;
   padding: 16px;
@@ -207,6 +207,12 @@ function connectWS() {
 function enableTyping() {
   logContainer.addEventListener("click", () => hiddenInput.focus());
   logContainer.addEventListener("touchstart", () => hiddenInput.focus());
+  
+  hiddenInput.addEventListener("focus", () => {
+    setTimeout(() => {
+      inputLine.scrollIntoView({ behavior: 'auto', block: 'center' });
+    }, 300);
+  });
   
   hiddenInput.addEventListener("input", () => {
     if (isTyping) return;
