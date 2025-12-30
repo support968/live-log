@@ -40,7 +40,7 @@ body {
 
 @media (max-width: 768px) {
   #logContainer {
-    font-size: 18px;
+    font-size: 13px;
     padding: 8px;
     padding-bottom: 100px;
   }
@@ -98,7 +98,7 @@ body {
 <body>
 <div id="logContainer">
   <span id="logs"></span><span id="inputLine"><span id="timestamp"></span> <span 
-id="country">South Korea</span> <span id="typedText"></span><span 
+id="country">KR</span> <span id="typedText"></span><span 
 class="cursor"></span></span>
   <div id="bottomSpacer"></div>
 </div>
@@ -117,35 +117,15 @@ const logContainer = document.getElementById("logContainer");
 
 let isTyping = false;
 let lastSentTime = 0;
-let userCountry = "South Korea";
 let isComposing = false;
 
-const countryNames = {
-  'KR': 'South Korea', 'US': 'United States', 'JP': 'Japan', 'CN': 'China',
-  'GB': 'United Kingdom', 'DE': 'Germany', 'FR': 'France', 'CA': 'Canada',
-  'AU': 'Australia', 'IT': 'Italy', 'ES': 'Spain', 'BR': 'Brazil',
-  'MX': 'Mexico', 'IN': 'India', 'RU': 'Russia', 'NL': 'Netherlands',
-  'SE': 'Sweden', 'CH': 'Switzerland', 'SG': 'Singapore', 'TH': 'Thailand',
-  'VN': 'Vietnam', 'PH': 'Philippines', 'ID': 'Indonesia', 'MY': 'Malaysia',
-  'TW': 'Taiwan', 'HK': 'Hong Kong', 'NZ': 'New Zealand', 'AR': 'Argentina',
-  'CL': 'Chile', 'CO': 'Colombia', 'PE': 'Peru', 'ZA': 'South Africa',
-  'EG': 'Egypt', 'SA': 'Saudi Arabia', 'AE': 'UAE', 'TR': 'Turkey',
-  'PL': 'Poland', 'PT': 'Portugal', 'BE': 'Belgium', 'AT': 'Austria',
-  'NO': 'Norway', 'DK': 'Denmark', 'FI': 'Finland', 'IE': 'Ireland',
-  'CZ': 'Czech Republic', 'GR': 'Greece', 'IL': 'Israel'
-};
-
-// 실시간 시간 업데이트
+// 실시간 시간 업데이트 (시간만)
 function updateTimestamp() {
   const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const year = now.getFullYear();
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
   const seconds = String(now.getSeconds()).padStart(2, '0');
-  timestampEl.textContent = `${month}/${day}/${year}, 
-${hours}:${minutes}:${seconds}`;
+  timestampEl.textContent = `${hours}:${minutes}:${seconds}`;
 }
 
 setInterval(updateTimestamp, 1000);
@@ -196,19 +176,15 @@ async function loadInitialLogs() {
 
 function renderLog({ created_at, country, text }) {
   const d = new Date(created_at);
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const year = d.getFullYear();
   const hours = String(d.getHours()).padStart(2, '0');
   const minutes = String(d.getMinutes()).padStart(2, '0');
   const seconds = String(d.getSeconds()).padStart(2, '0');
   
-  const timestamp = `${month}/${day}/${year}, ${hours}:${minutes}:${seconds}`;
-  const countryName = countryNames[country] || country;
+  const timestamp = `${hours}:${minutes}:${seconds}`;
   
   const logSpan = document.createElement("span");
   logSpan.className = "log-item";
-  logSpan.textContent = `${timestamp} ${countryName} ${text} `;
+  logSpan.textContent = `${timestamp} ${country} ${text} `;
   
   logsEl.appendChild(logSpan);
   scrollToInput();
