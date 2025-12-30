@@ -19,17 +19,24 @@ url('https://fonts.googleapis.com/css2?family=Geist:wght@500&display=swap');
       height: 100%;
       background: transparent !important;
       overflow: hidden;
+      display: flex;
+      align-items: flex-start;
     }
 
-.counter {
-  font-size: 33cqw;
-  font-weight: 500;
-  color: #ffffff;
-  font-family: 'Geist', sans-serif;
-  line-height: 1;
-  background: transparent !important;
-  white-space: nowrap;
-}
+    .counter {
+      font-size: 50cqw;
+      font-weight: 500;
+      color: #ffffff;
+      font-family: 'Geist', sans-serif;
+      line-height: 1;
+      background: transparent !important;
+      white-space: nowrap;
+      transition: color 0.2s;
+    }
+
+    .counter.hover {
+      color: #ff0000;
+    }
   </style>
 </head>
 <body>
@@ -38,8 +45,16 @@ url('https://fonts.googleapis.com/css2?family=Geist:wght@500&display=swap');
   <script>
     const API_URL = window.location.origin;
     const WS_URL = API_URL.replace('http', 'ws');
-
     const counterEl = document.getElementById('counter');
+
+    // 부모로부터 호버 메시지 받기
+    window.addEventListener('message', (e) => {
+      if (e.data === 'hover') {
+        counterEl.classList.add('hover');
+      } else if (e.data === 'out') {
+        counterEl.classList.remove('hover');
+      }
+    });
 
     async function loadCount() {
       try {
