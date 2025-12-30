@@ -7,29 +7,30 @@
   <style>
     @import 
 url('https://fonts.googleapis.com/css2?family=Geist:wght@500&display=swap');
-    
+
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
-    
+
     body {
       background: transparent;
       display: flex;
       align-items: center;
       justify-content: flex-start;
     }
-    
+
     .counter {
-      font-size: 1.1rem;
+      /* vw 단위로 화면 너비에 비례하게 */
+      font-size: clamp(0.7rem, 2vw, 1.1rem);
       font-weight: 500;
       color: #ffffff;
       font-family: 'Geist', sans-serif;
       font-style: normal;
       line-height: 1.4;
       letter-spacing: -0.011em;
-      padding-left: 1.0rem;
+      padding-left: clamp(0.5rem, 2vw, 1rem);
     }
   </style>
 </head>
@@ -39,10 +40,9 @@ url('https://fonts.googleapis.com/css2?family=Geist:wght@500&display=swap');
   <script>
     const API_URL = window.location.origin;
     const WS_URL = API_URL.replace('http', 'ws');
-    
+
     const counterEl = document.getElementById('counter');
-    
-    // 초기 카운트 로드
+
     async function loadCount() {
       try {
         const res = await fetch(`${API_URL}/api/count`);
@@ -52,23 +52,22 @@ url('https://fonts.googleapis.com/css2?family=Geist:wght@500&display=swap');
         console.error('Failed to load count:', err);
       }
     }
-    
-    // WebSocket 연결
+
     function connectWebSocket() {
       const ws = new WebSocket(WS_URL);
-      
+
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.count !== undefined) {
           counterEl.textContent = data.count;
         }
       };
-      
+
       ws.onclose = () => {
         setTimeout(connectWebSocket, 2000);
       };
     }
-    
+
     loadCount();
     connectWebSocket();
   </script>
