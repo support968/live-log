@@ -67,7 +67,7 @@ html, body {
 }
 
 #bottomSpacer {
-  height: 50vh;
+  height: 70vh;
 }
 </style>
 </head>
@@ -208,39 +208,45 @@ function enableTyping() {
   logContainer.addEventListener("click", () => hiddenInput.focus());
   logContainer.addEventListener("touchstart", () => hiddenInput.focus());
   
-  hiddenInput.addEventListener("focus", () => {
-    setTimeout(() => {
-      inputLine.scrollIntoView({ behavior: 'auto', block: 'center' });
-    }, 300);
-  });
-  
-  hiddenInput.addEventListener("input", () => {
+hiddenInput.addEventListener("focus", () => {
+  setTimeout(() => {
+    inputLine.scrollIntoView({ behavior: 'auto', block: 'center' });
+  }, 100);
+  setTimeout(() => {
+    inputLine.scrollIntoView({ behavior: 'auto', block: 'center' });
+  }, 400);
+});
+
+hiddenInput.addEventListener("input", () => {
+  if (isTyping) return;
+  typedTextEl.textContent = hiddenInput.value;
+  inputLine.scrollIntoView({ behavior: 'auto', block: 'center' });
+});
+
+hiddenInput.addEventListener("compositionstart", () => {
+  isComposing = true;
+});
+
+hiddenInput.addEventListener("compositionend", () => {
+  isComposing = false;
+});
+
+hiddenInput.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !isComposing) {
+    e.preventDefault();
     if (isTyping) return;
-    typedTextEl.textContent = hiddenInput.value;
-  });
-  
-  hiddenInput.addEventListener("compositionstart", () => {
-    isComposing = true;
-  });
-  
-  hiddenInput.addEventListener("compositionend", () => {
-    isComposing = false;
-  });
-  
-  hiddenInput.addEventListener("keydown", e => {
-    if (e.key === "Enter" && !isComposing) {
-      e.preventDefault();
-      if (isTyping) return;
-      const text = hiddenInput.value.trim();
-      if (!text) return;
-      isTyping = true;
-      sendLog(text);
-      hiddenInput.value = "";
-      typedTextEl.textContent = "";
-      hiddenInput.blur();
-    }
-  });
-  
+    const text = hiddenInput.value.trim();
+    if (!text) return;
+    isTyping = true;
+    sendLog(text);
+    hiddenInput.value = "";
+    typedTextEl.textContent = "";
+    hiddenInput.blur();
+  }
+});
+
+
+
   document.addEventListener("keydown", e => {
     if (isTyping) return;
     if (e.key.length === 1 || e.key === "Backspace") {
