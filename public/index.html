@@ -1,258 +1,176 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, 
-maximum-scale=1.0, user-scalable=no">
-<title>LIVE LOG 2</title>
+import { useState, useEffect, useRef } from 'react';
 
-<style>
-@import 
-url('https://fonts.googleapis.com/css2?family=Geist:wght@500&display=swap');
+export default function Log2Preview() {
+  const [visibleLogs, setVisibleLogs] = useState([]);
+  const [inputText, setInputText] = useState('');
+  const [currentTime, setCurrentTime] = useState('');
+  const [isComposing, setIsComposing] = useState(false);
+  const inputRef = useRef(null);
+  const hiddenInputRef = useRef(null);
+  
+  const allLogs = [
+    { id: 1, timestamp: '06/21/2025, 14:25:03', country: 'South Korea', 
+text: 'dksdskdjsdsjkds' },
+    { id: 2, timestamp: '06/21/2025, 14:25:05', country: 'South Korea', 
+text: 'dksdskdjs4334dsjkds' },
+    { id: 3, timestamp: '06/21/2025, 14:25:08', country: 'South Korea', 
+text: 'heloosdllsm dkskdkls3232323232232kdmsmds,s' },
+    { id: 4, timestamp: '06/21/2025, 14:25:10', country: 'South Korea', 
+text: 'dksdskdjsdsjkds' },
+    { id: 5, timestamp: '06/21/2025, 14:25:12', country: 'United States', 
+text: 'Hello from USA!' },
+    { id: 6, timestamp: '06/21/2025, 14:25:15', country: 'Japan', text: 
+'こんにちは' },
+    { id: 7, timestamp: '06/21/2025, 14:25:18', country: 'South Korea', 
+text: 'heloosdllsm dkskdklskdmsmds,s' },
+    { id: 8, timestamp: '06/21/2025, 14:25:20', country: 'Germany', text: 
+'Hallo aus Deutschland' },
+    { id: 9, timestamp: '06/21/2025, 14:25:22', country: 'South Korea', 
+text: 'OSS' },
+    { id: 10, timestamp: '06/21/2025, 14:25:25', country: 'France', text: 
+'Bonjour!' },
+    { id: 11, timestamp: '06/21/2025, 14:25:28', country: 'South Korea', 
+text: '안녕하세요. 집에언제갈니까?오늘갈니까? 청수아저씨 왔어요...아...' 
+},
+    { id: 12, timestamp: '06/21/2025, 14:25:30', country: 'United 
+Kingdom', text: 'Hello from London' },
+  ];
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html, body {
-  background: #000;
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-#logContainer {
-  font-family: 'Geist', sans-serif;
-  font-size: 1.65rem;
-  font-weight: 500;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
-  color: #e00000;
-  padding: 16px;
-  word-wrap: break-word;
-  cursor: text;
-}
-
-.cursor {
-  display: inline-block;
-  width: 2px;
-  height: 1.2em;
-  background: #e00000;
-  margin-left: 2px;
-  animation: blink 1s steps(1) infinite;
-  vertical-align: text-bottom;
-}
-
-@keyframes blink {
-  50% { opacity: 0; }
-}
-
-#hiddenInput {
-  position: absolute;
-  left: -9999px;
-  opacity: 0;
-}
-
-#bottomSpacer {
-  height: 50vh;
-}
-</style>
-</head>
-
-<body>
-<div id="logContainer">
-  <span id="logs"></span><span id="inputLine"><span id="timestamp"></span> 
-<span id="country">South Korea</span> <span id="typedText"></span><span 
-class="cursor"></span></span>
-  <div id="bottomSpacer"></div>
-</div>
-
-<input type="text" id="hiddenInput" autocomplete="off" 
-autocapitalize="off" autocorrect="off" spellcheck="false">
-
-<script>
-const logsEl = document.getElementById("logs");
-const inputLine = document.getElementById("inputLine");
-const timestampEl = document.getElementById("timestamp");
-const countryEl = document.getElementById("country");
-const typedTextEl = document.getElementById("typedText");
-const hiddenInput = document.getElementById("hiddenInput");
-const logContainer = document.getElementById("logContainer");
-
-let isTyping = false;
-let lastSentTime = 0;
-let userCountry = "South Korea";
-let isComposing = false;
-
-const countryNames = {
-  'KR': 'South Korea', 'US': 'United States', 'JP': 'Japan', 'CN': 
-'China',
-  'GB': 'United Kingdom', 'DE': 'Germany', 'FR': 'France', 'CA': 'Canada',
-  'AU': 'Australia', 'IT': 'Italy', 'ES': 'Spain', 'BR': 'Brazil',
-  'MX': 'Mexico', 'IN': 'India', 'RU': 'Russia', 'NL': 'Netherlands',
-  'SE': 'Sweden', 'CH': 'Switzerland', 'SG': 'Singapore', 'TH': 
-'Thailand',
-  'VN': 'Vietnam', 'PH': 'Philippines', 'ID': 'Indonesia', 'MY': 
-'Malaysia',
-  'TW': 'Taiwan', 'HK': 'Hong Kong', 'NZ': 'New Zealand', 'AR': 
-'Argentina',
-  'CL': 'Chile', 'CO': 'Colombia', 'PE': 'Peru', 'ZA': 'South Africa',
-  'EG': 'Egypt', 'SA': 'Saudi Arabia', 'AE': 'UAE', 'TR': 'Turkey',
-  'PL': 'Poland', 'PT': 'Portugal', 'BE': 'Belgium', 'AT': 'Austria',
-  'NO': 'Norway', 'DK': 'Denmark', 'FI': 'Finland', 'IE': 'Ireland',
-  'CZ': 'Czech Republic', 'GR': 'Greece', 'IL': 'Israel'
-};
-
-// 실시간 시간 업데이트
-function updateTimestamp() {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const year = now.getFullYear();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  timestampEl.textContent = `${month}/${day}/${year}, 
-${hours}:${minutes}:${seconds}`;
-}
-
-setInterval(updateTimestamp, 1000);
-updateTimestamp();
-
-// 입력창으로 스크롤
-function scrollToInput() {
-  inputLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-// 초기 로그 로드
-async function loadInitialLogs() {
-  try {
-    const res = await fetch("/api/messages");
-    const data = await res.json();
-    
-    const sorted = data.sort((a, b) => a.created_at - b.created_at);
-    
-    sorted.forEach((msg) => {
-      renderLog(msg);
+  // 초기 로드 시 하나씩 애니메이션
+  useEffect(() => {
+    allLogs.forEach((log, index) => {
+      setTimeout(() => {
+        setVisibleLogs(prev => [...prev, log]);
+      }, index * 30);
     });
+  }, []);
+  
+  // 실시간 시간 업데이트 (초 단위)
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      setCurrentTime(`${month}/${day}/${year}, 
+${hours}:${minutes}:${seconds}`);
+    };
     
-    setTimeout(scrollToInput, 100);
-  } catch (err) {
-    console.error('Failed to load logs:', err);
-    setTimeout(scrollToInput, 100);
-  }
-}
-
-function renderLog({ created_at, country, text }) {
-  const d = new Date(created_at);
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const year = d.getFullYear();
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  const seconds = String(d.getSeconds()).padStart(2, '0');
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
   
-  const timestamp = `${month}/${day}/${year}, 
-${hours}:${minutes}:${seconds}`;
-  const countryName = countryNames[country] || country;
-  
-  const logSpan = document.createElement("span");
-  logSpan.textContent = `${timestamp} ${countryName} ${text} `;
-  
-  logsEl.appendChild(logSpan);
-  scrollToInput();
-}
-
-// WebSocket 연결
-let ws;
-
-function connectWS() {
-  ws = new WebSocket(
-    location.protocol === "https:"
-      ? `wss://${location.host}`
-      : `ws://${location.host}`
-  );
-  
-  ws.onmessage = e => {
-    const msg = JSON.parse(e.data);
-    const timeDiff = Date.now() - lastSentTime;
-    
-    if (msg.type === 'message' && timeDiff > 1000) {
-      renderLog(msg.data);
+  // 입력창으로 스크롤
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.scrollIntoView({ behavior: 'auto', block: 'center' 
+});
     }
+  }, [visibleLogs]);
+  
+  const handleSubmit = () => {
+    if (!inputText.trim()) return;
+    
+    const newLog = {
+      id: Date.now(),
+      timestamp: currentTime,
+      country: 'South Korea',
+      text: inputText.trim()
+    };
+    
+    setVisibleLogs(prev => [...prev, newLog]);
+    setInputText('');
   };
   
-  ws.onclose = () => {
-    setTimeout(connectWS, 2000);
-  };
-}
-
-// 입력 처리
-function enableTyping() {
-  logContainer.addEventListener("click", () => hiddenInput.focus());
-  logContainer.addEventListener("touchstart", () => hiddenInput.focus());
-  
-  hiddenInput.addEventListener("input", () => {
-    if (isTyping) return;
-    typedTextEl.textContent = hiddenInput.value;
-  });
-  
-  hiddenInput.addEventListener("compositionstart", () => {
-    isComposing = true;
-  });
-  
-  hiddenInput.addEventListener("compositionend", () => {
-    isComposing = false;
-  });
-  
-  hiddenInput.addEventListener("keydown", e => {
-    if (e.key === "Enter" && !isComposing) {
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !isComposing) {
       e.preventDefault();
-      if (isTyping) return;
-      const text = hiddenInput.value.trim();
-      if (!text) return;
-      isTyping = true;
-      sendLog(text);
-      hiddenInput.value = "";
-      typedTextEl.textContent = "";
-      hiddenInput.blur();
+      handleSubmit();
     }
-  });
+  };
   
-  document.addEventListener("keydown", e => {
-    if (isTyping) return;
-    if (e.key.length === 1 || e.key === "Backspace") {
-      hiddenInput.focus();
+  // 화면 클릭하면 입력 포커스
+  const handleClick = () => {
+    if (hiddenInputRef.current) {
+      hiddenInputRef.current.focus();
     }
-  });
-}
-
-async function sendLog(text) {
-  lastSentTime = Date.now();
+  };
   
-  try {
-    const res = await fetch("/api/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text })
-    });
-    
-    const newMessage = await res.json();
-    renderLog(newMessage);
-  } catch (err) {
-    console.error('Failed to send log:', err);
-  }
-  
-  setTimeout(() => {
-    isTyping = false;
-  }, 100);
+  return (
+    <div 
+      className="bg-black min-h-screen overflow-auto cursor-text"
+      onClick={handleClick}
+    >
+      <style>{`
+        @keyframes blink {
+          50% { opacity: 0; }
+        }
+        .cursor {
+          display: inline-block;
+          width: 2px;
+          height: 1.2em;
+          background: #e00000;
+          margin-left: 2px;
+          animation: blink 1s steps(1) infinite;
+          vertical-align: text-bottom;
+        }
+        .log-text {
+          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          font-size: 1.65rem;
+          font-weight: 500;
+          line-height: 1.3;
+          letter-spacing: -0.01em;
+          color: #e00000;
+        }
+        .hidden-input {
+          position: absolute;
+          left: -9999px;
+          opacity: 0;
+        }
+        .log-item {
+          display: inline;
+          animation: fadeIn 0.15s ease forwards;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
+      
+      {/* 숨겨진 입력창 */}
+      <input
+        ref={hiddenInputRef}
+        type="text"
+        value={inputText}
+        onChange={(e) => setInputText(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onCompositionStart={() => setIsComposing(true)}
+        onCompositionEnd={() => setIsComposing(false)}
+        className="hidden-input"
+        autoFocus
+      />
+      
+      {/* 로그 컨테이너 - 왼쪽 정렬, 연속된 텍스트 */}
+      <div className="log-text p-4" style={{ wordWrap: 'break-word' }}>
+        {visibleLogs.map((log) => (
+          <span key={log.id} className="log-item">
+            {log.timestamp} {log.country} {log.text}{' '}
+          </span>
+        ))}
+        
+        {/* 입력 부분 */}
+        <span ref={inputRef}>
+          {currentTime} South Korea {inputText}<span 
+className="cursor"></span>
+        </span>
+        
+        {/* 아래 여백 */}
+        <div className="h-64"></div>
+      </div>
+    </div>
+  );
 }
-
-// 초기화
-loadInitialLogs();
-connectWS();
-enableTyping();
-</script>
-</body>
-</html>
