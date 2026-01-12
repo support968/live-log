@@ -133,13 +133,10 @@ updateTimestamp();
 
 // 입력창으로 스크롤
 function scrollToInput() {
-  const rect = inputLine.getBoundingClientRect();
-  const viewportHeight = window.visualViewport ? window.visualViewport.height : 
-window.innerHeight;
-  const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-  const targetY = scrollTop + rect.top - (viewportHeight / 2);
-  window.scrollTo(0, Math.max(0, targetY));
+  inputLine.scrollIntoView({ behavior: 'auto', block: 'center' });
 }
+
+
 
 // visualViewport API로 키보드 감지
 if (window.visualViewport) {
