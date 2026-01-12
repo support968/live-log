@@ -2,118 +2,103 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, 
+<meta name="viewport" content="width=device-width, initial-scale=1.0,
 maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>LIVE LOG 2</title>
 
 <style>
 * {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 html {
-  height: 100%;
+  height: 100%;
 }
 
 body {
-  background: #000;
-  min-height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  background: #000;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 #logContainer {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  font-size: 26px;
-  font-weight: 500;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
-  color: #e00000;
-  
-  padding: 2px 8px 100px 8px;
-  word-wrap: break-word;
-  cursor: text;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: #e00000;
+
+  padding: 2px 8px 100px 8px;
+  word-wrap: break-word;
+  cursor: text;
 }
 
 @media (max-width: 768px) {
-  #logContainer {
-    font-size: 13px;
-    padding: 50px 4px 100px 4px;
-    
-  }
-#inputLine {
-    position: fixed;
-    top: 0;
-left: 0;
-right: 0;
-    background: #000;
-    display: block;
-    padding: 4px;
-    z-index: 100;
-  }
+  #logContainer {
+    font-size: 13px;
+    padding: 2px 4px 100px 4px;
+
+  }
 }
 
 .log-item {
-  display: inline;
-  opacity: 0;
-  animation: fadeIn 0.15s ease forwards;
+  display: inline;
+  opacity: 0;
+  animation: fadeIn 0.15s ease forwards;
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .cursor {
-  display: inline-block;
-  width: 2px;
-  height: 1.2em;
-  background: #e00000;
-  margin-left: 2px;
-  animation: blink 1s steps(1) infinite;
-  vertical-align: text-bottom;
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  background: #e00000;
+  margin-left: 2px;
+  animation: blink 1s steps(1) infinite;
+  vertical-align: text-bottom;
 }
 
 @keyframes blink {
-  50% { opacity: 0; }
+  50% { opacity: 0; }
 }
 
 #hiddenInput {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 50px;
-  opacity: 0;
-  font-size: 16px;
-  background: transparent;
-  border: none;
-  color: transparent;
-  z-index: 1000;
-}
-
-#bottomSpacer {
-  height: 50vh;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 50px;
+  opacity: 0;
+  font-size: 16px;
+  background: transparent;
+  border: none; #bottomSpacer {
+  height: 50vh;
 }
 </style>
 </head>
-
+ 
 <body>
 <div id="logContainer">
-  <span id="logs"></span><span id="inputLine"><span id="timestamp"></span> <span 
-id="country">KR</span> <span id="typedText"></span><span 
+  <span id="logs"></span><span id="inputLine"><span id="timestamp"></span> <span
+id="country">KR</span> <span id="typedText"></span><span
 class="cursor"></span></span>
-  <div id="bottomSpacer"></div>
+  <div id="bottomSpacer"></div>
 </div>
-
-<input type="text" id="hiddenInput" autocomplete="off" autocapitalize="off" 
+   
+<input type="text" id="hiddenInput" autocomplete="off" autocapitalize="off"
 autocorrect="off" spellcheck="false">
 
 <script>
@@ -124,163 +109,160 @@ const countryEl = document.getElementById("country");
 const typedTextEl = document.getElementById("typedText");
 const hiddenInput = document.getElementById("hiddenInput");
 const logContainer = document.getElementById("logContainer");
-
+  
 let isTyping = false;
 let lastSentTime = 0;
 let isComposing = false;
-
+  
 // 실시간 시간 업데이트 (시간만)
 function updateTimestamp() {
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  timestampEl.textContent = `${hours}:${minutes}:${seconds}`;
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  timestampEl.textContent = `${hours}:${minutes}:${seconds}`;
 }
-
+  
 setInterval(updateTimestamp, 1000);
-updateTimestamp();
-
+updateTimestamp();   
+  
 // 입력창으로 스크롤
 function scrollToInput() {
-  inputLine.scrollIntoView({ behavior: 'auto', block: 'start' });
+  const rect = inputLine.getBoundingClientRect();
+  const viewportHeight = window.visualViewport ? window.visualViewport.height :
+window.innerHeight;
+  const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+  const targetY = scrollTop + rect.top - (viewportHeight / 2);
+  window.scrollTo(0, Math.max(0, targetY));
 }
-
-
 
 // visualViewport API로 키보드 감지
 if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', () => {
-    scrollToInput();
-  });
-}
+  window.visualViewport.addEventListener('resize', () => {
+    scrollToInput();
+  }); 
+}  
 
 // 초기 로그 로드 (하나씩 애니메이션)
 async function loadInitialLogs() {
-  try {
-    const res = await fetch("/api/messages");
-    const data = await res.json();
-    
-    const sorted = data.sort((a, b) => a.created_at - b.created_at);
-    
-    sorted.forEach((msg, index) => {
-      setTimeout(() => {
-        renderLog(msg);
-        if (index === sorted.length - 1) {
-          setTimeout(scrollToInput, 100);
-        }
-      }, index * 30);
-    });
-    
-    if (sorted.length === 0) {
-      setTimeout(scrollToInput, 100);
-    }
-  } catch (err) {
-    console.error('Failed to load logs:', err);
-    setTimeout(scrollToInput, 100);
-  }
-}
+  try { 
+    const res = await fetch("/api/messages");  
+    const data = await res.json();
 
-function renderLog({ created_at, country, text }) {
-  const d = new Date(created_at);
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  const seconds = String(d.getSeconds()).padStart(2, '0');
-  
-  const timestamp = `${hours}:${minutes}:${seconds}`;
-  
-  const logSpan = document.createElement("span");
-  logSpan.className = "log-item";
-  logSpan.textContent = `${timestamp} ${country} ${text} `;
-  
-  logsEl.appendChild(logSpan);
-  scrollToInput();
-}
+    const sorted = data.sort((a, b) => a.created_at - b.created_at);
 
+    sorted.forEach((msg, index) => {
+      setTimeout(() => {
+        renderLog(msg);
+        if (index === sorted.length - 1) {
+          setTimeout(scrollToInput, 100);
+        }
+      }, index * 30);
+    });
+
+    if (sorted.length === 0) {
+      setTimeout(scrollToInput, 100);
+    }
+  } catch (err) {
+    console.error('Failed to load logs:', err);
+    setTimeout(scrollToInput, 100);
+  }
+}function renderLog({ created_at, country, text }) {
+  const d = new Date(created_at);
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+
+  const timestamp = `${hours}:${minutes}:${seconds}`;
+  
+  const logSpan = document.createElement("span");
+  logSpan.className = "log-item";
+  logSpan.textContent = `${timestamp} ${country} ${text} `;
+
+  logsEl.appendChild(logSpan);
+  scrollToInput();
+}
+      
 // WebSocket 연결
 let ws;
 
 function connectWS() {
-  ws = new WebSocket(
-    location.protocol === "https:"
-      ? `wss://${location.host}`
-      : `ws://${location.host}`
-  );
-  
+  ws = new WebSocket(
+    location.protocol === "https:"
+      ? `wss://${location.host}`  
+      : `ws://${location.host}`
+  );
+
 ws.onmessage = e => {
   const msg = JSON.parse(e.data);
       
   if (msg.type === 'message') {
     renderLog(msg.data);
   }
-};  
+};
 
-
-
-  ws.onclose = () => {
-    setTimeout(connectWS, 2000);
-  };
+  ws.onclose = () => {
+    setTimeout(connectWS, 2000);
+  }; 
 }
-
+    
 // 입력 처리
 function enableTyping() {
-  logContainer.addEventListener("click", () => {
-    hiddenInput.focus();
-  });
-  
-  logContainer.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    hiddenInput.focus();
-    setTimeout(scrollToInput, 100);
-    setTimeout(scrollToInput, 300);
-    setTimeout(scrollToInput, 500);
-  });
-  
-  hiddenInput.addEventListener("focus", () => {
-    setTimeout(scrollToInput, 50);
-    setTimeout(scrollToInput, 150);
-    setTimeout(scrollToInput, 300);
-    setTimeout(scrollToInput, 500);
-  });
+  logContainer.addEventListener("click", () => {
+    hiddenInput.focus();
+  });
+  
+  logContainer.addEventListener("touchend", (e) => {  
+    e.preventDefault();
+    hiddenInput.focus();
+    setTimeout(scrollToInput, 100);
+    setTimeout(scrollToInput, 300);
+    setTimeout(scrollToInput, 500);
+  });
+  
+  hiddenInput.addEventListener("focus", () => {
+    setTimeout(scrollToInput, 50);
+    setTimeout(scrollToInput, 150);
+    setTimeout(scrollToInput, 300);
+    setTimeout(scrollToInput, 500);
+  }); 
 
-  hiddenInput.addEventListener("input", () => {
-    if (isTyping) return;
-    typedTextEl.textContent = hiddenInput.value;
-    setTimeout(scrollToInput, 50);
-    setTimeout(scrollToInput, 200);
-  });
-
-  hiddenInput.addEventListener("compositionstart", () => {
-    isComposing = true;
-  });
-
-  hiddenInput.addEventListener("compositionend", () => {
-    isComposing = false;
-  setTimeout(scrollToInput, 50);
-  setTimeout(scrollToInput, 200);
-  });
-
-  hiddenInput.addEventListener("keydown", e => {
-    if (e.key === "Enter" && !isComposing) {
-      e.preventDefault();
-      if (isTyping) return;
-      const text = hiddenInput.value.trim();
-      if (!text) return;
-      isTyping = true;
-      sendLog(text);
-      hiddenInput.value = "";
-      typedTextEl.textContent = "";
-      hiddenInput.blur();
-    }
-  });
-
-  document.addEventListener("keydown", e => {
-    if (isTyping) return;
-    if (e.key.length === 1 || e.key === "Backspace") {
-      hiddenInput.focus();
-    }
-  });
+  hiddenInput.addEventListener("input", () => {
+    if (isTyping) return;
+    typedTextEl.textContent = hiddenInput.value;
+    scrollToInput(); 
+  });
+      
+  hiddenInput.addEventListener("compositionstart", () => {
+    isComposing = true;
+  });
+  
+  hiddenInput.addEventListener("compositionend", () => {
+    isComposing = false;
+    scrollToInput();
+  });
+      
+  hiddenInput.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !isComposing) {
+      e.preventDefault();
+      if (isTyping) return;
+      const text = hiddenInput.value.trim();
+      if (!text) return;
+      isTyping = true;
+      sendLog(text);
+      hiddenInput.value = "";
+      typedTextEl.textContent = "";
+      hiddenInput.blur();     }
+  });
+  
+  document.addEventListener("keydown", e => {
+    if (isTyping) return;
+    if (e.key.length === 1 || e.key === "Backspace") {
+      hiddenInput.focus();
+    }
+  });
 }
+  
 
 async function sendLog(text) {
   try {
@@ -298,7 +280,7 @@ async function sendLog(text) {
   }, 100);
 }
 
-
+     
 // 초기화
 loadInitialLogs();
 connectWS();
