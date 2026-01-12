@@ -273,25 +273,21 @@ function enableTyping() {
 }
 
 async function sendLog(text) {
-  lastSentTime = Date.now();
-  
   try {
-    const res = await fetch("/api/messages", {
+    await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text })
     });
-    
-    const newMessage = await res.json();
-    renderLog(newMessage);
   } catch (err) {
     console.error('Failed to send log:', err);
   }
-  
+     
   setTimeout(() => {
     isTyping = false;
   }, 100);
 }
+
 
 // 초기화
 loadInitialLogs();
