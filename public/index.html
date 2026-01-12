@@ -200,15 +200,16 @@ function connectWS() {
       : `ws://${location.host}`
   );
   
-  ws.onmessage = e => {
-    const msg = JSON.parse(e.data);
-    const timeDiff = Date.now() - lastSentTime;
-    
-    if (msg.type === 'message' && timeDiff > 1000) {
-      renderLog(msg.data);
-    }
-  };
-  
+ws.onmessage = e => {
+  const msg = JSON.parse(e.data);
+      
+  if (msg.type === 'message') {
+    renderLog(msg.data);
+  }
+};  
+
+
+
   ws.onclose = () => {
     setTimeout(connectWS, 2000);
   };
