@@ -239,7 +239,8 @@ function enableTyping() {
   hiddenInput.addEventListener("input", () => {
     if (isTyping) return;
     typedTextEl.textContent = hiddenInput.value;
-    scrollToInput();
+    setTimeout(scrollToInput, 50);
+    setTimeout(scrollToInput, 200);
   });
 
   hiddenInput.addEventListener("compositionstart", () => {
@@ -248,7 +249,8 @@ function enableTyping() {
 
   hiddenInput.addEventListener("compositionend", () => {
     isComposing = false;
-    scrollToInput();
+  setTimeout(scrollToInput, 50);
+  setTimeout(scrollToInput, 200);
   });
 
   hiddenInput.addEventListener("keydown", e => {
